@@ -10,7 +10,7 @@ services:
     ports:
       - "8880:8580"
     environment:
-      - "urls=http://localhost:8580"
+      - "urls=http://0.0.0.0:8580"
       - PUID=1000
       - PGID=1000
     volumes:
