@@ -10,10 +10,13 @@ services:
     ports:
       - "8880:8580"
     environment:
-      - "urls=http://[::]:8580"
+      - "urls=http://localhost:8580"
+      - PUID=1000
+      - PGID=1000
     volumes:
       - ./downloads:/app/downloads
     user: 0:0
+    privileged: true
 
   nginx:
     image: nginx:latest
@@ -24,6 +27,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    user: 0:0
+    privileged: true
 
   filebrowser:
     image: filebrowser/filebrowser:s6
@@ -34,4 +42,6 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+    user: 0:0
+    privileged: true
     restart: always
