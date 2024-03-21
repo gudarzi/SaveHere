@@ -11,7 +11,8 @@ services:
       - "8880:8580"
       - "8883:8581"
     environment:
-      - "urls=http://[::]:8580;https://[::]:8581"
+      # - "urls=http://[::]:8580;https://[::]:8581"
+      - "urls=http://[::]:8580"
     volumes:
       - ./downloads:/app/downloads
 
