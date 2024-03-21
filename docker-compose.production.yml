@@ -12,7 +12,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - ./downloads:/app/downloads
+      - downloads:/app/downloads
     user: 0:0
     privileged: true
 
@@ -20,7 +20,7 @@ services:
     image: nginx:latest
     volumes:
       - ./nginx/conf.d/:/etc/nginx/conf.d/
-      - ./downloads:/home/files/downloads
+      - downloads:/home/files/downloads
       - ./frontend:/home/files/frontend
     ports:
       - "172.17.0.1:18480:80"
@@ -34,7 +34,7 @@ services:
   filebrowser:
     image: filebrowser/filebrowser:s6
     volumes:
-      - ./downloads:/srv
+      - downloads:/srv
       - ./filebrowser/filebrowser.db:/database/filebrowser.db
       - ./filebrowser/settings.json:/config/settings.json
     environment:
@@ -43,3 +43,7 @@ services:
     user: 0:0
     privileged: true
     restart: always
+
+volumes:
+  downloads:
+    external: false
