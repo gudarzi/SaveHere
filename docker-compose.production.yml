@@ -13,7 +13,7 @@ services:
       - PGID=1000
     volumes:
       - ./downloads:/app/downloads
-    user: 0:0
+    user: 1000:1000
 
   nginx:
     image: nginx:latest
