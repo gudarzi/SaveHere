@@ -15,6 +15,7 @@ services:
       - "urls=http://[::]:8580"
     volumes:
       - ./downloads:/app/downloads
+    user: 0:0
 
   nginx:
     image: nginx:latest
