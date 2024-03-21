@@ -13,7 +13,8 @@ services:
       - PGID=1000
     volumes:
       - ./downloads:/app/downloads
-    user: 1000:1000
+    user: 0:0
+    privileged: true
 
   nginx:
     image: nginx:latest
@@ -37,4 +38,6 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+    user: 0:0
+    privileged: true
     restart: always
