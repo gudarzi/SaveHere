@@ -24,7 +24,7 @@ namespace SaveHere.WebAPI.Controllers
       {
         if (task.IsFaulted || task.IsCanceled) return;
 
-        using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
+        using var stream = new FileStream(localFilePath, FileMode.CreateNew);
         task.Result.Content.CopyToAsync(stream);
       });
 
