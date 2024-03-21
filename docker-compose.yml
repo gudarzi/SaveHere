@@ -1,0 +1,39 @@
+version: '3.4'
+
+services:
+
+  savehere.webapi:
+    image: ${DOCKER_REGISTRY-}saveherewebapi
+    build:
+      context: .
+      dockerfile: SaveHere.WebAPI/Dockerfile
+    ports:
+      - "8880:8580"
+      - "8883:8581"
+    environment:
+      - "urls=http://[::]:8580;https://[::]:8581"
+    volumes:
+      - ./downloads:/app/downloads
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/conf.d/:/etc/nginx/conf.d/
+      - ./downloads:/home/files/downloads
+      - ./frontend:/home/files/frontend
+    ports:
+      - "80:80"
+      - "443:443"
+
+  filebrowser:
+    image: filebrowser/filebrowser:s6
+    volumes:
+      - ./downloads:/srv
+      - ./filebrowser/filebrowser.db:/database/filebrowser.db
+      - ./filebrowser/settings.json:/config/settings.json
+    environment:
+      - PUID=1000
+      - PGID=1000
+    # ports:
+    #   - "20856:80"
+    restart: always

@@ -1,0 +1,6 @@
+@SaveHere.WebAPI_HostAddress = http://localhost:5112
+
+GET {{SaveHere.WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

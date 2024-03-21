@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save Here</title>
+</head>
+
+<body>
+    <div>
+        <label for="urlInput">URL:</label>
+        <input type="text" id="urlInput">
+        <button onclick="sendRequest()">Send Request</button>
+        <div id="responseText"></div>
+    </div>
+
+    <div>
+        <a href="/filemanager" target="_blank">File Manager</a>
+    </div>
+
+    <script type="text/javascript">
+    function sendRequest() {
+        const xhr = new XMLHttpRequest();
+        const url = document.getElementById("urlInput").value;
+        
+        xhr.open('POST', 'api/File/download');
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+          if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+            document.getElementById("responseText").innerHTML = `<a href="${this.responseText}">Direct Link</a>`
+          }
+        };
+        xhr.send(`"${url}"`);
+      }
+</script>
+</body>
+
+</html>
