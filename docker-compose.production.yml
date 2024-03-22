@@ -9,6 +9,10 @@ services:
       dockerfile: SaveHere.WebAPI/Dockerfile
     environment:
       - "urls=http://0.0.0.0:8580"
+      - PUID=1000
+      - PGID=1000
+    user: 0:0
+    privileged: true
     volumes:
       - ./downloads:/app/downloads
 
@@ -21,6 +25,11 @@ services:
     ports:
       - "172.17.0.1:18480:80"
       - "172.17.0.1:18443:443"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    user: 0:0
+    privileged: true
 
   filebrowser:
     image: filebrowser/filebrowser:s6
@@ -31,4 +40,6 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+    user: 0:0
+    privileged: true
     restart: always
