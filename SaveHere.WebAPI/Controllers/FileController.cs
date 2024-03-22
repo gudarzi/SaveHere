@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace SaveHere.WebAPI.Controllers
 {
@@ -20,12 +23,15 @@ namespace SaveHere.WebAPI.Controllers
       var fileName = Path.GetFileName(url);
       var localFilePath = Path.Combine("/app/downloads", fileName);
 
-      await _httpClient.GetAsync(url).ContinueWith((task) =>
+      await _httpClient.GetAsync(url).ContinueWith(async (task) =>
       {
         if (task.IsFaulted || task.IsCanceled) return;
 
         using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
-        task.Result.Content.CopyToAsync(stream);
+        await task.Result.Content.CopyToAsync(stream);
+
+        if (System.OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
+          UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead | UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
       });
 
       return Ok($"/files/{fileName}");
