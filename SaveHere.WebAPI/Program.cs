@@ -10,7 +10,7 @@ public class Program
   {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=/app/downloads/database.sqlite3.db"));
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=/app/db/database.sqlite3.db"));
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
@@ -36,8 +36,8 @@ public class Program
       dbc.Database.EnsureCreated();
       dbc.Database.Migrate();
 
-      dbc.FileDownloadQueueItems.Add(new Models.FileDownloadQueueItem() { InputUrl = "https://dummy.me" });
-      dbc.SaveChanges();
+      //dbc.FileDownloadQueueItems.Add(new Models.FileDownloadQueueItem() { InputUrl = "https://dummy.me" });
+      //dbc.SaveChanges();
     }
 
     app.Run();

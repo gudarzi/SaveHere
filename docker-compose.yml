@@ -13,6 +13,7 @@ services:
       - "urls=http://0.0.0.0:8580"
     volumes:
       - ./downloads:/app/downloads
+      - ./db:/app/db
 
   nginx:
     image: nginx:latest
