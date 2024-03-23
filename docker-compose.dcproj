@@ -7,7 +7,7 @@
     <ProjectGuid>f788a8c8-01af-4440-b0bf-3476ed1be779</ProjectGuid>
     <DockerLaunchAction>LaunchBrowser</DockerLaunchAction>
     <!--<DockerServiceUrl>{Scheme}://localhost:{ServicePort}/swagger</DockerServiceUrl>-->
-    <DockerServiceUrl>http://localhost</DockerServiceUrl>
+    <DockerServiceUrl>http://localhost/swagger/index.html</DockerServiceUrl>
     <DockerServiceName>savehere.webapi</DockerServiceName>
   </PropertyGroup>
   <ItemGroup>

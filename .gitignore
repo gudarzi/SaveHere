@@ -366,3 +366,4 @@ FodyWeavers.xsd
 db/
 downloads/
 filebrowser/filebrowser.db
+/filebrowser/filebrowser.db
