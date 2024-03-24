@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from "tailwindcss";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -8,4 +9,9 @@ export default defineConfig({
     outDir: '../frontend',
     emptyOutDir: true,
   },
+  css: {
+    postcss: {
+      plugins: [tailwindcss()],
+    },
+  }
 })
