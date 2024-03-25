@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System.Dynamic;
 
 namespace SaveHere.WebAPI.Controllers;
 
@@ -42,78 +41,13 @@ public class FileController : ControllerBase
     {
       string rootPath = "/app/downloads";
       DirectoryInfo dirInfo = new DirectoryInfo(rootPath);
-
-      var result = new List<object>();
-
-      foreach (var fileSystemInfo in dirInfo.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
-      {
-        dynamic obj = new System.Dynamic.ExpandoObject();
-
-        obj.Name = fileSystemInfo.Name;
-        obj.FullName = fileSystemInfo.FullName;
-        obj.Type = fileSystemInfo switch
-        {
-          FileInfo fi => "file",
-          DirectoryInfo di => "directory",
-          _ => "default"
-        };
-
-        if (obj.Type == "file")
-        {
-          obj.Length = ((FileInfo)fileSystemInfo).Length;
-          obj.Extension = ((FileInfo)fileSystemInfo).Extension;
-        }
-        else if (obj.Type == "directory")
-        {
-          obj.Children = GetDirectoryContent((DirectoryInfo)fileSystemInfo);
-        }
-
-        result.Add(obj);
-      }
-
-      result = result.OrderBy(r => (string)((dynamic)r).Type).ThenBy(r => (string)((dynamic)r).Name).ToList();
-
+      var result = Helpers.GetDirectoryContent(dirInfo);
       return Ok(result);
     }
     catch (Exception ex)
     {
       return BadRequest($"An error occurred while listing files: {ex.Message}");
     }
-  }
-
-  private List<object> GetDirectoryContent(DirectoryInfo dirInfo)
-  {
-    List<object> result = new List<object>();
-
-    foreach (var fileSystemInfo in dirInfo.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
-    {
-      dynamic obj = new System.Dynamic.ExpandoObject();
-
-      obj.Name = fileSystemInfo.Name;
-      obj.FullName = fileSystemInfo.FullName;
-      obj.Type = fileSystemInfo switch
-      {
-        FileInfo fi => "file",
-        DirectoryInfo di => "directory",
-        _ => "default"
-      };
-
-      if (obj.Type == "file")
-      {
-        obj.Length = ((FileInfo)fileSystemInfo).Length;
-        obj.Extension = ((FileInfo)fileSystemInfo).Extension;
-      }
-      else if (obj.Type == "directory")
-      {
-        obj.Children = GetDirectoryContent((DirectoryInfo)fileSystemInfo);
-      }
-
-      result = result.OrderBy(r => (string)((dynamic)r).Type).ThenBy(r => (string)((dynamic)r).Name).ToList();
-
-      result.Add(obj);
-    }
-
-    return result;
   }
 
   [HttpPost("delete")]
