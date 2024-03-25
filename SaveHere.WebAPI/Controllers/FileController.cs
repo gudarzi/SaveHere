@@ -44,7 +44,7 @@ public class FileController : ControllerBase
 
       var result = new List<object>();
 
-      foreach (var fileSystemInfo in dirInfo.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+      foreach (var fileSystemInfo in dirInfo.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
       {
         dynamic obj = new System.Dynamic.ExpandoObject();
 
@@ -62,7 +62,10 @@ public class FileController : ControllerBase
           obj.Length = ((FileInfo)fileSystemInfo).Length;
           obj.Extension = ((FileInfo)fileSystemInfo).Extension;
         }
-        else continue;
+        else if (obj.Type == "directory")
+        {
+          obj.Children = GetDirectoryContent((DirectoryInfo)fileSystemInfo);
+        }
 
         result.Add(obj);
       }
@@ -73,6 +76,39 @@ public class FileController : ControllerBase
     {
       return BadRequest($"An error occurred while listing files: {ex.Message}");
     }
+  }
+
+  private List<object> GetDirectoryContent(DirectoryInfo dirInfo)
+  {
+    List<object> result = new List<object>();
+
+    foreach (var fileSystemInfo in dirInfo.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
+    {
+      dynamic obj = new System.Dynamic.ExpandoObject();
+
+      obj.Name = fileSystemInfo.Name;
+      obj.FullName = fileSystemInfo.FullName;
+      obj.Type = fileSystemInfo switch
+      {
+        FileInfo fi => "file",
+        DirectoryInfo di => "directory",
+        _ => "default"
+      };
+
+      if (obj.Type == "file")
+      {
+        obj.Length = ((FileInfo)fileSystemInfo).Length;
+        obj.Extension = ((FileInfo)fileSystemInfo).Extension;
+      }
+      else if (obj.Type == "directory")
+      {
+        obj.Children = GetDirectoryContent((DirectoryInfo)fileSystemInfo);
+      }
+
+      result.Add(obj);
+    }
+
+    return result;
   }
 
   [HttpPost("delete")]

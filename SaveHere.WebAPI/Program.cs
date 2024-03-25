@@ -12,6 +12,19 @@ public class Program
 
     builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=/app/db/database.sqlite3.db"));
 
+    var apiCorsPolicy = "ApiCorsPolicy";
+    builder.Services.AddCors(options =>
+    {
+      options.AddPolicy(name: apiCorsPolicy,
+                        builder =>
+                        {
+                          builder
+                          .AllowAnyOrigin()
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                        });
+    });
+
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
@@ -27,7 +40,7 @@ public class Program
     }
 
     app.UseAuthorization();
-
+    if (app.Environment.IsDevelopment()) app.UseCors(apiCorsPolicy);
     app.MapControllers();
 
     using (var scope = app.Services.CreateScope())

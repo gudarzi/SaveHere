@@ -13,5 +13,23 @@ export default defineConfig({
     postcss: {
       plugins: [tailwindcss()],
     },
-  }
+  },
+  server: {
+    proxy: {
+      '^/api': {
+        target: "http://localhost",
+        secure: false
+      },
+      '^/swagger': {
+        target: "http://localhost",
+        secure: false
+      }
+    },
+    host: '0.0.0.0',
+    port: 5173,
+    // https: {
+    //     key: fs.readFileSync(keyFilePath),
+    //     cert: fs.readFileSync(certFilePath),
+    // }
+  },
 })
