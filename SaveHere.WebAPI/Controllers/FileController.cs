@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Dynamic;
 
 namespace SaveHere.WebAPI.Controllers;
 
@@ -70,6 +71,8 @@ public class FileController : ControllerBase
         result.Add(obj);
       }
 
+      result = result.OrderBy(r => (string)((dynamic)r).Type).ThenBy(r => (string)((dynamic)r).Name).ToList();
+
       return Ok(result);
     }
     catch (Exception ex)
@@ -104,6 +107,8 @@ public class FileController : ControllerBase
       {
         obj.Children = GetDirectoryContent((DirectoryInfo)fileSystemInfo);
       }
+
+      result = result.OrderBy(r => (string)((dynamic)r).Type).ThenBy(r => (string)((dynamic)r).Name).ToList();
 
       result.Add(obj);
     }
