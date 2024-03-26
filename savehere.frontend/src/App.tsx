@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './App.css'
 import DownloadedFilesList from './components/DownloadedFilesList'
+import QueueItemsList from './components/QueueItemsList';
 
 function App() {
   const [isDarkMode, setDarkMode] = useState(true);
@@ -14,7 +15,8 @@ function App() {
       <nav className="text-white p-4">
         <div className="container mx-auto flex justify-between items-center">
 
-          <div>
+          <div className="container mx-auto flex justify-left items-center">
+          <img src="/icon.svg" alt="Icon" />
             <svg width="200" height="50" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="textGradient" x1="0%" y1="25%" x2="100%" y2="75%">
@@ -26,7 +28,6 @@ function App() {
               <rect x="10" y="38" width="140" height="2" fill="url(#textGradient)" />
             </svg>
           </div>
-
 
           <button className="p-1 rounded-full hover:bg-[#FFFFFF33]" onClick={toggleDarkMode}>
             {isDarkMode ?
@@ -42,8 +43,10 @@ function App() {
         </div>
       </nav>
 
+      <QueueItemsList />
+
       <DownloadedFilesList />
-      
+
     </div>
   );
 }
