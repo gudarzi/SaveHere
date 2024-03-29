@@ -40,34 +40,34 @@ public class FileDownloadQueueItemsController : ControllerBase
 
   // PUT: api/FileDownloadQueueItems/5
   // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-  [HttpPut("{id}")]
-  public async Task<IActionResult> PutFileDownloadQueueItem(int id, FileDownloadQueueItem fileDownloadQueueItem)
-  {
-    if (id != fileDownloadQueueItem.Id)
-    {
-      return BadRequest();
-    }
+  //[HttpPut("{id}")]
+  //public async Task<IActionResult> PutFileDownloadQueueItem(int id, FileDownloadQueueItem fileDownloadQueueItem)
+  //{
+  //  if (id != fileDownloadQueueItem.Id)
+  //  {
+  //    return BadRequest();
+  //  }
 
-    _context.Entry(fileDownloadQueueItem).State = EntityState.Modified;
+  //  _context.Entry(fileDownloadQueueItem).State = EntityState.Modified;
 
-    try
-    {
-      await _context.SaveChangesAsync();
-    }
-    catch (DbUpdateConcurrencyException)
-    {
-      if (!FileDownloadQueueItemExists(id))
-      {
-        return NotFound();
-      }
-      else
-      {
-        throw;
-      }
-    }
+  //  try
+  //  {
+  //    await _context.SaveChangesAsync();
+  //  }
+  //  catch (DbUpdateConcurrencyException)
+  //  {
+  //    if (!FileDownloadQueueItemExists(id))
+  //    {
+  //      return NotFound();
+  //    }
+  //    else
+  //    {
+  //      throw;
+  //    }
+  //  }
 
-    return NoContent();
-  }
+  //  return NoContent();
+  //}
 
   // POST: api/FileDownloadQueueItems
   // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
