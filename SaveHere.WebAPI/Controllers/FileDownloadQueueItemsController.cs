@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SaveHere.WebAPI.DTOs;
 using SaveHere.WebAPI.Models;
 using SaveHere.WebAPI.Models.db;
 
@@ -71,12 +72,18 @@ public class FileDownloadQueueItemsController : ControllerBase
   // POST: api/FileDownloadQueueItems
   // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
   [HttpPost]
-  public async Task<ActionResult<FileDownloadQueueItem>> PostFileDownloadQueueItem(FileDownloadQueueItem fileDownloadQueueItem)
+  public async Task<ActionResult<FileDownloadQueueItem>> PostFileDownloadQueueItem([FromBody] FileDownloadRequestDTO fileDownloadRequest)
   {
-    _context.FileDownloadQueueItems.Add(fileDownloadQueueItem);
+    if (!ModelState.IsValid || string.IsNullOrWhiteSpace(fileDownloadRequest.InputUrl))
+    {
+      return BadRequest();
+    }
+
+    var newFileDownload = new FileDownloadQueueItem() { InputUrl = fileDownloadRequest.InputUrl };
+    _context.FileDownloadQueueItems.Add(newFileDownload);
     await _context.SaveChangesAsync();
 
-    return CreatedAtAction("GetFileDownloadQueueItem", new { id = fileDownloadQueueItem.Id }, fileDownloadQueueItem);
+    return CreatedAtAction("GetFileDownloadQueueItem", new { id = newFileDownload.Id }, newFileDownload);
   }
 
   // DELETE: api/FileDownloadQueueItems/5

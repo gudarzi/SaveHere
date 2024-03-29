@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './App.css'
 import DownloadedFilesList from './components/DownloadedFilesList'
 import QueueItemsList from './components/QueueItemsList';
+import NewFileDownload from './components/NewFileDownload';
 
 function App() {
   const [isDarkMode, setDarkMode] = useState(true);
@@ -16,7 +17,7 @@ function App() {
         <div className="container mx-auto flex justify-between items-center">
 
           <div className="container mx-auto flex justify-left items-center">
-          <img src="/icon.svg" alt="Icon" />
+            <img src="/icon.svg" alt="Icon" />
             <svg width="200" height="50" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="textGradient" x1="0%" y1="25%" x2="100%" y2="75%">
@@ -42,6 +43,8 @@ function App() {
           </button>
         </div>
       </nav>
+
+      <NewFileDownload />
 
       <QueueItemsList />
 
