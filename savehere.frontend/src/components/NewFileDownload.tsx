@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const NewFileDownload = () => {
+const NewFileDownload = (props: {onNewFileAdded:()=>unknown}) => {
   const [inputUrl, setInputUrl] = useState('');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -21,6 +21,7 @@ const NewFileDownload = () => {
 
       setInputUrl(''); // Clear the input field
       // console.log('Request sent successfully');
+      props.onNewFileAdded()
     } catch (error) {
       console.error('Error:', error);
     }

@@ -6,6 +6,7 @@ import NewFileDownload from './components/NewFileDownload';
 
 function App() {
   const [isDarkMode, setDarkMode] = useState(true);
+  const [dummy1, setDummy1] = useState("")
 
   const toggleDarkMode = () => {
     setDarkMode(!isDarkMode);
@@ -44,9 +45,9 @@ function App() {
         </div>
       </nav>
 
-      <NewFileDownload />
+      <NewFileDownload onNewFileAdded={() => setDummy1(dummy1 + 1)} />
 
-      <QueueItemsList />
+      <QueueItemsList dummy={dummy1} />
 
       <DownloadedFilesList />
 
