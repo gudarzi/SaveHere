@@ -31,8 +31,8 @@ function App() {
               <rect x="10" y="38" width="140" height="2" fill="url(#textGradient)" />
             </svg>
 
-            <a href='/filemanager' className='m-1 ml-2 underline'>File Manager</a>
-            <a href='/swagger/index.html' className='m-1 ml-2 underline'>Swagger</a>
+            <a href='/filemanager' target='_blank' className='m-1 ml-2 underline'>File Manager</a>
+            <a href='/swagger/index.html' target='_blank' className='m-1 ml-2 underline'>Swagger</a>
           </div>
 
 
