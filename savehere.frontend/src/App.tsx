@@ -32,7 +32,7 @@ function App() {
             </svg>
 
             <a href='/filemanager' className='m-1 ml-2 underline'>File Manager</a>
-            <a href='/swagger' className='m-1 ml-2 underline'>Swagger</a>
+            <a href='/swagger/index.html' className='m-1 ml-2 underline'>Swagger</a>
           </div>
 
 
