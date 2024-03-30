@@ -9,8 +9,12 @@ interface FileSystemInfo {
     Extension?: string;
 }
 
-const DownloadedFilesList = () => {
+const DownloadedFilesList = (props: { dummy: string }) => {
     const [data, setData] = useState<FileSystemInfo[]>([]);
+
+    useEffect(() => {
+        fetchList()
+    }, [props.dummy]);
 
     useEffect(() => {
         fetchList()
@@ -27,6 +31,26 @@ const DownloadedFilesList = () => {
         })
 
     const renderNode = (node: FileSystemInfo, level: number) => {
+        const handleDelete = async () => {
+            try {
+                const response = await fetch(`api/File/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: `"${node.Name}"`,
+                });
+
+                if (response.ok) {
+                    fetchList();
+                } else {
+                    console.error('Failed to delete item:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
         if (node.Type === 'directory') {
             return (
                 <li key={node.FullName}>
@@ -34,6 +58,7 @@ const DownloadedFilesList = () => {
                         node={node}
                         level={level}
                         renderNode={renderNode}
+                        fetchList={fetchList}
                     />
                 </li>
             );
@@ -44,7 +69,12 @@ const DownloadedFilesList = () => {
                         <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625Z" />
                         <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
                     </svg>
-                    {node.Name} - {node.Length} bytes, {node.Extension}
+                    <a href={`/files/${node.Name}`} className='dark:text-blue-800 dark:visited:text-purple-800 text-blue-500 visited:text-purple-500 mr-2'>{node.Name}</a>{node.Length} bytes, {node.Extension}
+                    <button onClick={handleDelete} className="ml-2 p-1 rounded-full hover:bg-[#FFFFFF33]">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                        </svg>
+                    </button>
                 </li>
             );
         }
@@ -77,16 +107,38 @@ const FileNode = ({
     node,
     level,
     renderNode,
+    fetchList,
 }: {
-    node: FileSystemInfo;
-    level: number;
-    renderNode: (node: FileSystemInfo, level: number) => JSX.Element;
+    node: FileSystemInfo
+    level: number
+    renderNode: (node: FileSystemInfo, level: number) => JSX.Element
+    fetchList: () => void
 }) => {
     const [open, setOpen] = useState(false);
 
     const handleClick = () => {
         setOpen(!open);
-    };
+    }
+
+    const handleDelete = async () => {
+        try {
+            const response = await fetch(`api/File/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: `"${node.Name}"`,
+            });
+
+            if (response.ok) {
+                fetchList();
+            } else {
+                console.error('Failed to delete item:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
 
     return (
         <>
@@ -98,6 +150,11 @@ const FileNode = ({
                     <path d="M19.5 21a3 3 0 0 0 3-3v-4.5a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h15ZM1.5 10.146V6a3 3 0 0 1 3-3h5.379a2.25 2.25 0 0 1 1.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 0 1 3 3v1.146A4.483 4.483 0 0 0 19.5 9h-15a4.483 4.483 0 0 0-3 1.146Z" />
                 </svg>
                 {node.Name}
+                <button onClick={handleDelete} className="ml-2 p-1 rounded-full hover:bg-[#FFFFFF33]">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                    </svg>
+                </button>
             </button>
             {open && (
                 <ul className="ml-4 mb-2">

@@ -23,6 +23,10 @@ export default defineConfig({
       '^/swagger': {
         target: "http://localhost",
         secure: false
+      },
+      '^/files': {
+        target: "http://localhost",
+        secure: false
       }
     },
     host: '0.0.0.0',

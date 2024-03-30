@@ -11,10 +11,12 @@ namespace SaveHere.WebAPI.Controllers;
 public class FileDownloadQueueItemsController : ControllerBase
 {
   private readonly AppDbContext _context;
+  private readonly HttpClient _httpClient;
 
-  public FileDownloadQueueItemsController(AppDbContext context)
+  public FileDownloadQueueItemsController(AppDbContext context, HttpClient httpClient)
   {
     _context = context;
+    _httpClient = httpClient;
   }
 
   // GET: api/FileDownloadQueueItems
@@ -102,8 +104,52 @@ public class FileDownloadQueueItemsController : ControllerBase
     return NoContent();
   }
 
-  private bool FileDownloadQueueItemExists(int id)
+  // POST: api/FileDownloadQueueItems/startdownload
+  [HttpPost("startdownload")]
+  public async Task<IActionResult> StartFileDownload([FromBody] FileDownloadQueueItemRequestDTO request)
   {
-    return _context.FileDownloadQueueItems.Any(e => e.Id == id);
+    if (!ModelState.IsValid)
+    {
+      return BadRequest(ModelState);
+    }
+
+    var fileDownloadQueueItem = await _context.FileDownloadQueueItems.FindAsync(request.Id);
+
+    if (fileDownloadQueueItem == null)
+    {
+      return NotFound();
+    }
+
+    fileDownloadQueueItem.Status = EQueueItemStatus.Downloading;
+    _context.SaveChanges();
+
+    // Call the DownloadFile method in the FileController
+    var fileController = new FileController(_httpClient);
+    var downloadResult = await fileController.DownloadFile(fileDownloadQueueItem.InputUrl);
+
+    if (downloadResult is OkObjectResult okObjectResult)
+    {
+      // The file download has started successfully
+      // You might want to update the FileDownloadQueueItem object to reflect this
+      // For example, you could set a property like "IsDownloading" to true
+      fileDownloadQueueItem.Status = EQueueItemStatus.Finished;
+      _context.SaveChanges();
+      return Ok(okObjectResult.Value);
+    }
+    else
+    {
+      // The file download could not be started
+      // You might want to update the FileDownloadQueueItem object to reflect this
+      // For example, you could set a property like "DownloadAttempts" to increment it
+      fileDownloadQueueItem.Status = EQueueItemStatus.Paused;
+      _context.SaveChanges();
+      return BadRequest("The file download could not be started.");
+    }
   }
+
+
+  //private bool FileDownloadQueueItemExists(int id)
+  //{
+  //  return _context.FileDownloadQueueItems.Any(e => e.Id == id);
+  //}
 }
