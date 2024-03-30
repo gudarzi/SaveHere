@@ -27,6 +27,10 @@ export default defineConfig({
       '^/files': {
         target: "http://localhost",
         secure: false
+      },
+      '^/filemanager': {
+        target: "http://localhost",
+        secure: false
       }
     },
     host: '0.0.0.0',

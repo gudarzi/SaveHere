@@ -30,7 +30,11 @@ function App() {
               <text x="10" y="35" fontFamily="Arial" fontSize="30" fill="url(#textGradient)">SaveHere</text>
               <rect x="10" y="38" width="140" height="2" fill="url(#textGradient)" />
             </svg>
+
+            <a href='/filemanager' className='m-1 ml-2 underline'>File Manager</a>
+            <a href='/swagger' className='m-1 ml-2 underline'>Swagger</a>
           </div>
+
 
           <button className="p-1 rounded-full hover:bg-[#FFFFFF33]" onClick={toggleDarkMode}>
             {isDarkMode ?
@@ -48,7 +52,7 @@ function App() {
 
       <NewFileDownload onNewFileAdded={() => setDummy1(dummy1 + 1)} />
 
-      <QueueItemsList dummy={dummy1} onDownloadFinished={()=>setDummy2(dummy2+1)} />
+      <QueueItemsList dummy={dummy1} onDownloadFinished={() => setDummy2(dummy2 + 1)} />
 
       <DownloadedFilesList dummy={dummy2} />
 
