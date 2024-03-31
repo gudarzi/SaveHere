@@ -76,12 +76,12 @@ sudo chmod -R 777 downloads/
 
 
 ## To Do
-- Fix the packaging of the app and create 1 single docker image
-- Add an option for using filenames that the target server sends (instead of using the url)
-- Show more data and info about the file before downloading it
-- Add reporting download status to the user (useful for big files)
-- Add user accounts and set their access policies
-- Check [issues](https://github.com/gudarzi/SaveHere/issues) for more!
+- [ ] Fix the packaging of the app and create 1 single docker image
+- [ ] Add an option for using filenames that the target server sends (instead of using the url)
+- [ ] Show more data and info about the file before downloading it
+- [ ] Add reporting download status to the user (useful for big files)
+- [ ] Add user accounts and set their access policies
+- [x] Check [issues](https://github.com/gudarzi/SaveHere/issues) for more!
 
 
 ## How to contribute
