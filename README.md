@@ -79,11 +79,12 @@ sudo chmod -R 777 downloads/
 - Show more data and info about the file before downloading it
 - Add reporting download status to the user (useful for big files)
 - Add user accounts and set their access policies
+- Check [issues](https://github.com/gudarzi/SaveHere/issues) for more!
 
 
 ## How to contribute
 
-I welcome contributions from the community to help improve SaveHere. If you're interested in contributing, please check the [To Do](#to-do) list or take a look at the project's issues page to see if there are any open issues that you can help with. You can also submit pull requests with bug fixes, new features, or other improvements. Before submitting a pull request, please make sure that your code follows the project's coding standards and that all tests are passing. I will review all pull requests as soon as possible and provide feedback if necessary.
+I welcome contributions from the community to help improve SaveHere. If you're interested in contributing, please check the [To Do](#to-do) list or take a look at the project's [issues](https://github.com/gudarzi/SaveHere/issues) page to see if there are any open issues that you can help with. You can also submit pull requests with bug fixes, new features, or other improvements. Before submitting a pull request, please make sure that your code follows the project's coding standards and that all tests are passing. I will review all pull requests as soon as possible and provide feedback if necessary.
 
 
 ## Disclaimer
