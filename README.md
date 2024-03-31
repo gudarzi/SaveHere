@@ -38,6 +38,8 @@ In addition, it is recommended that you run SaveHere behind a reverse proxy such
 
 ## How to run this app
 
+*There's a demo instance of this app running [here](https://savehere.gudarzi.com), but I just need to fix some [issues](https://github.com/gudarzi/SaveHere/issues) before opening it to the public!*
+
 To run SaveHere, follow these steps:
 
 1. Clone the repository from GitHub and navigate into the directory:
