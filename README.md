@@ -68,7 +68,7 @@ npm run build
 
 5. The app is now available at the address `http://172.17.0.1:18480`.
 
-6. (Optional) If you encounter permission issues with the downloads folder, change the owner of the folder and all of its content to 1000:1000 and set the permissions to 777:
+6. (Optional) If you encounter permission issues with the downloads folder, change the owner of the folder and all of its content to `1000:1000` and set the permissions to `777`:
 ```bash
 sudo chown -R 1000:1000 downloads/
 sudo chmod -R 777 downloads/
