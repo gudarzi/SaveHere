@@ -363,8 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # My Config
-db/
-downloads/
-filebrowser/filebrowser.db
-/filebrowser/filebrowser.db
-frontend/
+downloads/*
