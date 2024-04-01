@@ -30,7 +30,6 @@ To run SaveHere, you will need to have the following dependencies installed:
 
 * [Docker](https://docs.docker.com/get-docker/): SaveHere is containerized using Docker, so you will need to have Docker installed on your machine.
 * [Docker Compose](https://docs.docker.com/compose/install/): SaveHere uses Docker Compose to manage its containers, so you will need to have Docker Compose installed as well.
-* [Node.js and npm](https://github.com/nvm-sh/nvm): SaveHere's frontend is built using React, which requires Node.js and npm to be installed. I recommend using nvm (Node Version Manager) to manage your Node.js installations.
 * (Optional) [Visual Studio 2022](https://visualstudio.microsoft.com/vs/) and [vscode](https://code.visualstudio.com/) for development.
 
 In addition, it is recommended that you run SaveHere behind a reverse proxy such as [Nginx](https://nginx.org/) or [Nginx Proxy Manager](https://nginxproxymanager.com/). This will allow you to access the app using your own domain name and SSL certificate, and provide additional security and performance benefits.
@@ -48,25 +47,12 @@ git clone https://github.com/gudarzi/SaveHere.git
 cd SaveHere
 ```
 
-2. Create the `db` directory and an empty `database.sqlite3.db` file:
-```bash
-mkdir db
-touch db/database.sqlite3.db
-```
-
-3. Run the containers using Docker Compose in detached mode:
+2. Run the containers using Docker Compose in detached mode:
 ```bash
 docker compose -f docker-compose.production.yml up -d
 ```
 
-4. Build the frontend app
-```bash
-cd savehere.frontend
-npm i
-npm run build
-```
-
-5. The app is now available at the address `http://172.17.0.1:18480`. (The password to the filebrowser app is `admin`:`admin`)
+3. The app is now available at the address `http://172.17.0.1:18480`. Change the address if you need to. The user:pass to the filebrowser app is `admin`:`admin`.
 
 6. (Optional) If you encounter permission issues with the downloads folder, change the owner of the folder and all of its content to `1000:1000` and set the permissions to `777`:
 ```bash
