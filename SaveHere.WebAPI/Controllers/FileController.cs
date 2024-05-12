@@ -16,7 +16,7 @@ public class FileController : ControllerBase
   [HttpPost("download")]
   public async Task<IActionResult> DownloadFile([FromBody] string url)
   {
-    var fileName = Path.GetFileName(HttpUtility.UrlDecode(url));
+    var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(url));
 
     await _httpClient.GetAsync(url).ContinueWith(async (task) =>
     {
@@ -26,8 +26,8 @@ public class FileController : ControllerBase
 	  
 	  if (contentDisposition != null)
       {
-	    if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
-		else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
+	    if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
+		else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
       }
 	  
 	  fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
