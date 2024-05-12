@@ -16,13 +16,26 @@ public class FileController : ControllerBase
   [HttpPost("download")]
   public async Task<IActionResult> DownloadFile([FromBody] string url)
   {
-    var fileName = Path.GetFileName(url);
-    var localFilePath = Path.Combine("/app/downloads", fileName);
+    var fileName = Path.GetFileName(HttpUtility.UrlDecode(url));
 
     await _httpClient.GetAsync(url).ContinueWith(async (task) =>
     {
       if (task.IsFaulted || task.IsCanceled) return;
 
+      var contentDisposition = task.Result.Content.Headers.ContentDisposition;
+	  
+	  if (contentDisposition != null)
+      {
+	    if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
+		else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
+      }
+	  
+	  fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+	  
+	  if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+	  
+	  var localFilePath = Path.Combine("/app/downloads", fileName);
+	  
       using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
       await task.Result.Content.CopyToAsync(stream);
 
