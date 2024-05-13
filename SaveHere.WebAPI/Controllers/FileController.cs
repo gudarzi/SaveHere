@@ -18,6 +18,8 @@ public class FileController : ControllerBase
   public async Task<IActionResult> DownloadFile([FromBody] DownloadFileRequestDTO request)
   {
     var url = request.Url;
+    if (string.IsNullOrEmpty(url)) return BadRequest("Bad URL");
+
     var useUrlForFilename = request.UseUrlForFilename ?? false; // defaulting to filename from content-disposition
 
     var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(url));

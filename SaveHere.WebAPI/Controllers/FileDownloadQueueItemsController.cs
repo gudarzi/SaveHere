@@ -125,7 +125,7 @@ public class FileDownloadQueueItemsController : ControllerBase
 
     // Call the DownloadFile method in the FileController
     var fileController = new FileController(_httpClient);
-    var downloadResult = await fileController.DownloadFile(fileDownloadQueueItem.InputUrl);
+    var downloadResult = await fileController.DownloadFile(new DownloadFileRequestDTO() { Url = fileDownloadQueueItem.InputUrl });
 
     if (downloadResult is OkObjectResult okObjectResult)
     {
