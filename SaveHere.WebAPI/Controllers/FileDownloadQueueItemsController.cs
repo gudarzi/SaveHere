@@ -124,97 +124,108 @@ public class FileDownloadQueueItemsController : ControllerBase
     _context.SaveChanges();
 
     // To Do: There's still no way of cancelling the download
-    var downloadResult = await DownloadFile(fileDownloadQueueItem, request.UseHeadersForFilename ?? true);
+    try
+    {
+      var downloadResult = await DownloadFile(fileDownloadQueueItem, request.UseHeadersForFilename ?? true);
 
-    if (downloadResult)
-    {
-      fileDownloadQueueItem.Status = EQueueItemStatus.Finished;
-      _context.SaveChanges();
-      return Ok("File download started successfully.");
+      if (downloadResult)
+      {
+        fileDownloadQueueItem.Status = EQueueItemStatus.Finished;
+        await _context.SaveChangesAsync();
+        return Ok("File download started successfully.");
+      }
+      else
+      {
+        fileDownloadQueueItem.Status = EQueueItemStatus.Paused;
+        await _context.SaveChangesAsync();
+        return BadRequest("There was an issue in downloading the file!");
+      }
     }
-    else
+    catch (Exception ex)
     {
-      fileDownloadQueueItem.Status = EQueueItemStatus.Paused;
-      _context.SaveChanges();
-      return BadRequest("There was an issue in downloading the file!");
+      // Log the exception
+      return StatusCode(500, $"An error occurred while downloading the file.\n{ex.Message}");
     }
   }
-
-  //private bool FileDownloadQueueItemExists(int id)
-  //{
-  //  return _context.FileDownloadQueueItems.Any(e => e.Id == id);
-  //}
 
   [NonAction]
   public async Task<bool> DownloadFile(FileDownloadQueueItem queueItem, bool UseHeadersForFilename = true)
   {
     if (string.IsNullOrEmpty(queueItem.InputUrl)) return false;
 
-    var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(queueItem.InputUrl));
-
-    await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead).ContinueWith(async (task) =>
+    try
     {
-      if (task.IsFaulted || task.IsCanceled) return;
+      var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(queueItem.InputUrl));
 
-      if (UseHeadersForFilename)
+      await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead).ContinueWith(async (task) =>
       {
-        var contentDisposition = task.Result.Content.Headers.ContentDisposition;
+        if (task.IsFaulted || task.IsCanceled) return;
 
-        if (contentDisposition != null)
+        if (UseHeadersForFilename)
         {
-          if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
-          else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
-        }
-      }
+          var contentDisposition = task.Result.Content.Headers.ContentDisposition;
 
-      fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
-
-      if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
-
-      var localFilePath = Path.Combine("/app/downloads", fileName);
-
-      using (var download = await task.Result.Content.ReadAsStreamAsync())
-      {
-        using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
-        var contentLength = task.Result.Content.Headers.ContentLength;
-
-        // Ignore progress reporting when the ContentLength's header is not available
-        if (!contentLength.HasValue)
-        {
-          queueItem.ProgressPercentage = 0;
-          _context.SaveChanges();
-          await download.CopyToAsync(stream);
-          queueItem.ProgressPercentage = 100;
-          _context.SaveChanges();
-        }
-        else
-        {
-          var buffer = new byte[81920]; // default buffer size used by Microsoft's CopyTo method in Stream
-          long totalBytesRead = 0;
-          int bytesRead;
-
-          while ((bytesRead = download.Read(buffer, 0, buffer.Length)) != 0)
+          if (contentDisposition != null)
           {
-            // To Do: This code has issues. It exists earlier than expected, resulting in unfinished downloads!
+            if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
+            else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
+          }
+        }
 
-            //Thread.Sleep(2000); // For testing purposes!
-            await stream.WriteAsync(buffer, 0, bytesRead);
-            totalBytesRead += bytesRead;
-            queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
+        fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
+        var localFilePath = Path.Combine("/app/downloads", fileName);
+
+        using (var download = await task.Result.Content.ReadAsStreamAsync())
+        {
+          using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
+          var contentLength = task.Result.Content.Headers.ContentLength;
+
+          // Ignore progress reporting when the ContentLength's header is not available
+          if (!contentLength.HasValue)
+          {
+            queueItem.ProgressPercentage = 0;
+            _context.SaveChanges();
+            await download.CopyToAsync(stream);
+            queueItem.ProgressPercentage = 100;
             _context.SaveChanges();
           }
+          else
+          {
+            var buffer = new byte[81920]; // default buffer size used by Microsoft's CopyTo method in Stream
+            long totalBytesRead = 0;
+            int bytesRead;
 
-          queueItem.ProgressPercentage = 100;
-          _context.SaveChanges();
+            while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length)) != 0)
+            {
+              // To Do: This code has issues. It exists prematurely, resulting in unfinished downloads!
+
+              Thread.Sleep(2000); // For testing purposes!
+              await stream.WriteAsync(buffer, 0, bytesRead);
+              totalBytesRead += bytesRead;
+              queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
+              _context.SaveChanges();
+            }
+
+            queueItem.ProgressPercentage = 100;
+            _context.SaveChanges();
+          }
         }
-      }
 
-      // Fixing file permissions on linux
-      if (OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
-        UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead |
-        UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite |
-        UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-    }).ConfigureAwait(false);
+        // Fixing file permissions on linux
+        if (OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
+          UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead |
+          UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite |
+          UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+      });
+    }
+    catch (Exception ex)
+    {
+      // Log the exception
+      return false;
+    }
 
     return true;
   }
