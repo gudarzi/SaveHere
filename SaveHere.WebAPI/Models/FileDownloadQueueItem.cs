@@ -12,7 +12,6 @@ namespace SaveHere.WebAPI.Models
     public EQueueItemStatus Status { get; set; } = EQueueItemStatus.Paused;
 
     public int ProgressPercentage { get; set; } = 0;
-
   }
 
   public enum EQueueItemStatus

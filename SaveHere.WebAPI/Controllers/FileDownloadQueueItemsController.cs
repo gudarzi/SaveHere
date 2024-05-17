@@ -157,73 +157,78 @@ public class FileDownloadQueueItemsController : ControllerBase
     {
       var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(queueItem.InputUrl));
 
-      await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead).ContinueWith(async (task) =>
+      var response = await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead);
+
+      if (!response.IsSuccessStatusCode) return false;
+
+      if (UseHeadersForFilename)
       {
-        if (task.IsFaulted || task.IsCanceled) return;
+        var contentDisposition = response.Content.Headers.ContentDisposition;
 
-        if (UseHeadersForFilename)
+        if (contentDisposition != null)
         {
-          var contentDisposition = task.Result.Content.Headers.ContentDisposition;
-
-          if (contentDisposition != null)
-          {
-            if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
-            else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
-          }
+          if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
+          else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
         }
+      }
 
-        fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+      fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
 
-        if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+      if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
-        var localFilePath = Path.Combine("/app/downloads", fileName);
+      var localFilePath = Path.Combine("/app/downloads", fileName);
 
-        using (var download = await task.Result.Content.ReadAsStreamAsync())
+      using (var download = await response.Content.ReadAsStreamAsync())
+      {
+        using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
+        var contentLength = response.Content.Headers.ContentLength;
+
+        // Ignore progress reporting when the ContentLength's header is not available
+        if (!contentLength.HasValue)
         {
-          using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
-          var contentLength = task.Result.Content.Headers.ContentLength;
+          await download.CopyToAsync(stream);
+          queueItem.ProgressPercentage = 100;
+          await _context.SaveChangesAsync();
+        }
+        else
+        {
+          var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
+          long totalBytesRead = 0;
+          int bytesRead;
 
-          // Ignore progress reporting when the ContentLength's header is not available
-          if (!contentLength.HasValue)
-          {
-            queueItem.ProgressPercentage = 0;
-            _context.SaveChanges();
-            await download.CopyToAsync(stream);
-            queueItem.ProgressPercentage = 100;
-            _context.SaveChanges();
-          }
-          else
-          {
-            var buffer = new byte[81920]; // default buffer size used by Microsoft's CopyTo method in Stream
-            long totalBytesRead = 0;
-            int bytesRead;
+          // To avoid slowing down the process we should not be saving changes to the context on every iteration
+          // This avoids it
+          int saveInterval = 10;
+          int counter = 0;
 
-            while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length)) != 0)
+          while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length)) != 0)
+          {
+            await stream.WriteAsync(buffer, 0, bytesRead);
+            totalBytesRead += bytesRead;
+            queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
+            counter++;
+
+            // Save progress to the database at regular intervals
+            if (counter >= saveInterval)
             {
-              // To Do: This code has issues. It exists prematurely, resulting in unfinished downloads!
-
-              Thread.Sleep(2000); // For testing purposes!
-              await stream.WriteAsync(buffer, 0, bytesRead);
-              totalBytesRead += bytesRead;
-              queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
-              _context.SaveChanges();
+              await _context.SaveChangesAsync();
+              counter = 0;
             }
-
-            queueItem.ProgressPercentage = 100;
-            _context.SaveChanges();
           }
-        }
 
-        // Fixing file permissions on linux
-        if (OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
+          // Save any remaining changes
+          await _context.SaveChangesAsync();
+        }
+      }
+
+      // Fixing file permissions on linux
+      if (OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
           UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead |
           UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite |
           UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-      });
     }
-    catch (Exception ex)
+    catch
     {
-      // Log the exception
       return false;
     }
 
