@@ -1,7 +1,7 @@
 <div align="center">
   <h1>SaveHere</h1>
-  <h4>[WIP] Minimal Cloud File Manager</h4>
-  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/d2bc618e-98bc-4fc4-a2ff-ce050ecfb22a" alt="Screen Shot of SaveHere App">
+  <h4>Minimal Cloud File Manager</h4>
+  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/409ebf6d-6ad6-479f-a269-5987e0e66268" alt="Screen Shot of SaveHere App">
 </div>
 
 
@@ -38,14 +38,18 @@ In addition, it is recommended that you run SaveHere behind a reverse proxy such
 
 ## How to run this app
 
-*There's a demo instance of this app running [here](https://savehere.gudarzi.com), but I just need to fix some [issues](https://github.com/gudarzi/SaveHere/issues) before opening it to the public!*
-
 To run SaveHere, follow these steps:
 
 1. Clone the repository from GitHub and navigate into the directory:
 ```bash
 git clone https://github.com/gudarzi/SaveHere.git
 cd SaveHere
+```
+
+- (Optional) If upgrading from a previous version, remove everything inside `db` and `downloads`:
+```bash
+sudo rm -rf db/
+sudo rm -rf downloads/
 ```
 
 2. Run the containers using Docker Compose in detached mode:
