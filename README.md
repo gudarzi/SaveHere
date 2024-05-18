@@ -50,7 +50,7 @@ cd SaveHere
 
 2. Run the containers using Docker Compose in detached mode:
 ```bash
-docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml up -d --build --force-recreate
 ```
 
 3. The app is now available at the address `http://172.17.0.1:18480`. Change the address if you need to. The user:pass to the filebrowser app is `admin`:`admin`.
