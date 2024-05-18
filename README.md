@@ -1,7 +1,7 @@
 <div align="center">
   <h1>SaveHere</h1>
   <h4>[WIP] Minimal Cloud File Manager</h4>
-  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/baf5c572-ca8a-46c3-8bce-debdaf76b0a6" alt="Screen Shot of SaveHere App">
+  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/d2bc618e-98bc-4fc4-a2ff-ce050ecfb22a" alt="Screen Shot of SaveHere App">
 </div>
 
 
@@ -64,8 +64,6 @@ sudo chmod -R 777 downloads/
 
 ## To Do
 - [ ] Fix the packaging of the app and create 1 single docker image
-- [ ] Show more data and info about the file before downloading it
-- [ ] Add download status reporting to the UI (useful for big files)
 - [ ] Add user accounts and set their access policies
 - [x] Check [issues](https://github.com/gudarzi/SaveHere/issues) for more!
 
