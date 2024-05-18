@@ -167,7 +167,13 @@ public class FileDownloadQueueItemsController : ControllerBase
   [NonAction]
   public async Task<bool> DownloadFile(FileDownloadQueueItem queueItem, bool UseHeadersForFilename, CancellationToken cancellationToken)
   {
-    if (string.IsNullOrEmpty(queueItem.InputUrl)) return false;
+    // Validate the URL (must use either HTTP or HTTPS schemes)
+    if (string.IsNullOrEmpty(queueItem.InputUrl) ||
+        !Uri.TryCreate(queueItem.InputUrl, UriKind.Absolute, out Uri? uriResult) ||
+        !(uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+    {
+      return false;
+    }
 
     try
     {
@@ -188,11 +194,18 @@ public class FileDownloadQueueItemsController : ControllerBase
         }
       }
 
+      // Ensure the filename is safe by removing invalid characters
       fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
-
       if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
-      var localFilePath = Path.Combine("/app/downloads", fileName);
+      // Construct the file path using the base directory and the sanitized filename
+      var localFilePath = Path.GetFullPath(Path.Combine("/app/downloads", fileName));
+
+      // Ensure the file path is within the intended directory
+      if (!localFilePath.StartsWith(Path.GetFullPath("/app/downloads"), StringComparison.OrdinalIgnoreCase))
+      {
+        throw new UnauthorizedAccessException("Invalid file path.");
+      }
 
       // Check if a file with the same name already exists
       string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);

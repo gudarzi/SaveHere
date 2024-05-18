@@ -28,12 +28,7 @@ public class FileController : ControllerBase
     try
     {
       string baseDirectory = "/app/downloads";
-      string absoluteFilePath = Path.GetFullPath(Path.Combine(baseDirectory, filePath));
-
-      if (!absoluteFilePath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
-      {
-        throw new Exception("The given file path does not fall under the /app/downloads directory.");
-      }
+      string absoluteFilePath = SanitizeAndValidatePath(baseDirectory, filePath);
 
       System.IO.File.Delete(absoluteFilePath);
 
@@ -51,13 +46,8 @@ public class FileController : ControllerBase
     try
     {
       string baseDirectory = "/app/downloads";
-      string oldFilePath = Path.Combine(baseDirectory, data.oldPath);
-      string newFilePath = Path.Combine(baseDirectory, data.newPath);
-
-      if (!oldFilePath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
-      {
-        throw new Exception("The source file path does not fall under the /app/downloads directory.");
-      }
+      string oldFilePath = SanitizeAndValidatePath(baseDirectory, data.oldPath);
+      string newFilePath = SanitizeAndValidatePath(baseDirectory, data.newPath);
 
       if (System.IO.File.Exists(newFilePath))
       {
@@ -74,4 +64,22 @@ public class FileController : ControllerBase
     }
   }
 
+  [NonAction]
+  private string SanitizeAndValidatePath(string baseDirectory, string filePath)
+  {
+    // Ensure the filename is safe by removing invalid characters
+    string fileName = string.Join("_", Path.GetFileName(filePath).Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+    if (string.IsNullOrWhiteSpace(fileName)) throw new Exception($"The filename cannot be empty.");
+
+    // Reconstruct the file path using the base directory and the sanitized filename
+    string fullPath = Path.GetFullPath(Path.Combine(baseDirectory, fileName));
+
+    // Ensure the file path is within the intended directory
+    if (!fullPath.StartsWith(Path.GetFullPath(baseDirectory), StringComparison.OrdinalIgnoreCase))
+    {
+      throw new Exception($"The file path '{filePath}' does not fall under the {baseDirectory} directory.");
+    }
+
+    return fullPath;
+  }
 }
