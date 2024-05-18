@@ -1,15 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface QueueItem {
     id: number;
     inputUrl: string;
-    status: number;
+    status: 0 | 1 | 2;
+    progressPercentage: number
 }
 
-const QueueItemsList = (props: { dummy: string , onDownloadFinished:()=>unknown}) => {
-    const [data, setData] = useState<QueueItem[]>([]);
+const statusMapping = {
+    0: 'Paused',
+    1: 'Downloading',
+    2: 'Finished',
+}
 
+const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknown }) => {
+    const [data, setData] = useState<QueueItem[]>([]);
     const [useHeadersForFilename, setUseHeadersForFilename] = useState(1);
+    const intervalRef = useRef<number | null>(null);
+
+    // To Do: This is lazy and noisy... Fix it later!
+    useEffect(() => {
+        intervalRef.current = setInterval(fetchList, 1000);
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
+    }, [props.dummy]);
 
     useEffect(() => {
         fetchList()
@@ -77,7 +95,7 @@ const QueueItemsList = (props: { dummy: string , onDownloadFinished:()=>unknown}
                         <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625Z" />
                         <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
                     </svg>
-                    {node.inputUrl} {node.status}
+                    {node.inputUrl} - {statusMapping[node.status]} - {node.progressPercentage}% -
                     <select onChange={(e) => setUseHeadersForFilename(Number(e.target.value))} className="ml-2 p-1 rounded-full text-gray-800 dark:text-white hover:bg-[#FFFFFF33] dark:bg-gray-500">
                         <option value="1" className="dark:bg-gray-500">Use Headers For Filename</option>
                         <option value="0" className="dark:bg-gray-500">Use Url For Filename</option>
@@ -111,7 +129,7 @@ const QueueItemsList = (props: { dummy: string , onDownloadFinished:()=>unknown}
             </div>
             <ul className="bg-[#11111122] dark:bg-[#FFFFFF22] p-3 text-sm leading-6 rounded-md">
                 {data && data.length > 0 ? (
-                    data.map((node) => renderNode(node))
+                    data.map((node) => <div key={node.id}>{renderNode(node)}</div>)
                 ) : (
                     <li className="text-center font-bold">Nothing to Show!</li>
                 )}
