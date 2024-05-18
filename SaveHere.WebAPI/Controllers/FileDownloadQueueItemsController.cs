@@ -42,37 +42,6 @@ public class FileDownloadQueueItemsController : ControllerBase
     return fileDownloadQueueItem;
   }
 
-  // PUT: api/FileDownloadQueueItems/5
-  // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-  //[HttpPut("{id}")]
-  //public async Task<IActionResult> PutFileDownloadQueueItem(int id, FileDownloadQueueItem fileDownloadQueueItem)
-  //{
-  //  if (id != fileDownloadQueueItem.Id)
-  //  {
-  //    return BadRequest();
-  //  }
-
-  //  _context.Entry(fileDownloadQueueItem).State = EntityState.Modified;
-
-  //  try
-  //  {
-  //    await _context.SaveChangesAsync();
-  //  }
-  //  catch (DbUpdateConcurrencyException)
-  //  {
-  //    if (!FileDownloadQueueItemExists(id))
-  //    {
-  //      return NotFound();
-  //    }
-  //    else
-  //    {
-  //      throw;
-  //    }
-  //  }
-
-  //  return NoContent();
-  //}
-
   // POST: api/FileDownloadQueueItems
   // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
   [HttpPost]
@@ -108,7 +77,7 @@ public class FileDownloadQueueItemsController : ControllerBase
 
   // POST: api/FileDownloadQueueItems/canceldownload
   [HttpPost("canceldownload")]
-  public IActionResult CancelFileDownload(int id)
+  public IActionResult CancelFileDownload([FromBody] FileDownloadCancelRequestDTO request)
   {
     if (!ModelState.IsValid)
     {
@@ -118,7 +87,7 @@ public class FileDownloadQueueItemsController : ControllerBase
     try
     {
       // Find the corresponding CancellationTokenSource based on the request ID
-      if (_cancellationTokenSources.TryRemove(id, out var cts))
+      if (_cancellationTokenSources.TryRemove(request.Id, out var cts))
       {
         cts.Cancel();
         return Ok("File download cancelled successfully.");
@@ -150,6 +119,7 @@ public class FileDownloadQueueItemsController : ControllerBase
     }
 
     fileDownloadQueueItem.Status = EQueueItemStatus.Downloading;
+    fileDownloadQueueItem.ProgressPercentage = 0;
     _context.SaveChanges();
 
     // Create a new CancellationTokenSource instance to manage cancellation for the current download request
@@ -265,7 +235,6 @@ public class FileDownloadQueueItemsController : ControllerBase
             {
               throw new OperationCanceledException(cancellationToken);
             }
-
             await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             totalBytesRead += bytesRead;
             queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
