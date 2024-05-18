@@ -18,6 +18,7 @@ namespace SaveHere.WebAPI.Models
   {
     Paused,
     Downloading,
-    Finished
+    Finished,
+    Cancelled
   }
 }
