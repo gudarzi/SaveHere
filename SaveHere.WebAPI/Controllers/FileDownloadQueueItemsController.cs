@@ -244,9 +244,9 @@ public class FileDownloadQueueItemsController : ControllerBase
         // Ignore progress reporting when the ContentLength's header is not available
         if (!contentLength.HasValue)
         {
-          await download.CopyToAsync(stream);
+          await download.CopyToAsync(stream, cancellationToken);
           queueItem.ProgressPercentage = 100;
-          await _context.SaveChangesAsync();
+          await _context.SaveChangesAsync(cancellationToken);
         }
         else
         {
