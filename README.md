@@ -46,18 +46,20 @@ git clone https://github.com/gudarzi/SaveHere.git
 cd SaveHere
 ```
 
-- (Optional) If upgrading from a previous version, remove everything inside `db` and `downloads`:
+- (Optional) If you are upgrading from a previous version and the app is throwing errors at you, try removing everything inside `db`:
 ```bash
 sudo rm -rf db/
-sudo rm -rf downloads/
 ```
 
-2. Run the containers using Docker Compose in detached mode:
+2. Run the containers using Docker Compose in detached mode, using production environment settings:
 ```bash
 docker compose -f docker-compose.production.yml up -d --build --force-recreate
 ```
 
-3. The app is now available at the address `http://172.17.0.1:18480`. Change the address if you need to. The user:pass to the filebrowser app is `admin`:`admin`.
+- (Note) If you are running the app in development environment (`docker compose up -d --build --force-recreate`), nginx serves the prebuilt frontend files on `http://localhost:80` and `https://localhost:443`.
+- (Note) If you want to work on frontend, first run the backend in dev mode using `docker compose up -d --build --force-recreate`, then do `npm run dev` in `savehere.frontend` and check the app running at `localhost:5173`.
+
+3. The app is now available at the address `http://172.17.0.1:18480`. Put it behind a reverse proxy and a domain. Change the address in settings if you need to. The user:pass to the filebrowser app is `admin`:`admin`.
 
 6. (Optional) If you encounter permission issues with the downloads folder, change the owner of the folder and all of its content to `1000:1000` and set the permissions to `777`:
 ```bash
