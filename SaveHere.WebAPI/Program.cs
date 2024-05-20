@@ -1,6 +1,6 @@
-
 using Microsoft.EntityFrameworkCore;
 using SaveHere.WebAPI.Models.db;
+using Microsoft.AspNetCore.WebSockets;
 
 namespace SaveHere.WebAPI;
 
@@ -19,19 +19,37 @@ public class Program
                         builder =>
                         {
                           builder
-                          .AllowAnyOrigin()
-                          .AllowAnyHeader()
-                          .AllowAnyMethod();
+                                  .AllowAnyOrigin()
+                                  .AllowAnyHeader()
+                                  .AllowAnyMethod();
                         });
     });
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
+    builder.Services.AddWebSockets(options => { options.KeepAliveInterval = TimeSpan.FromMinutes(2); });
 
     builder.Services.AddScoped<HttpClient>();
 
     var app = builder.Build();
+
+    // Configure WebSocket route
+    app.UseWebSockets();
+
+    // WebSocket endpoint
+    app.Map("/ws", async context =>
+    {
+      if (context.WebSockets.IsWebSocketRequest)
+      {
+        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        await WebSocketHandler.HandleWebSocketAsync(webSocket);
+      }
+      else
+      {
+        context.Response.StatusCode = 400;
+      }
+    });
 
     //if (app.Environment.IsDevelopment())
     {

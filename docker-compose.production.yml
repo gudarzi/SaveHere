@@ -7,8 +7,10 @@ services:
     build:
       context: .
       dockerfile: SaveHere.WebAPI/Dockerfile
+    ports:
+      - "18481:8581" # WebSocket
     environment:
-      - "urls=http://0.0.0.0:8580"
+      - "urls=http://0.0.0.0:8580;http://0.0.0.0:8581"
       - PUID=1000
       - PGID=1000
     user: 0:0
