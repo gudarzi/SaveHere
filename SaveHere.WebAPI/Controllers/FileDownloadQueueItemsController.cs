@@ -177,7 +177,7 @@ public class FileDownloadQueueItemsController : ControllerBase
 
     try
     {
-      var fileName = Path.GetFileName(System.Web.HttpUtility.UrlDecode(queueItem.InputUrl));
+      var fileName = Helpers.ExtractFileNameFromUrl(queueItem.InputUrl);
 
       var response = await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
@@ -194,9 +194,20 @@ public class FileDownloadQueueItemsController : ControllerBase
         }
       }
 
-      // Ensure the filename is safe by removing invalid characters
+      // Ensure the filename is safe by removing invalid characters and making sure it cannot end up being empty
       fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
       if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
+      // Try to determine the file extension based on common mime types if the filename doesn't have one already
+      if (string.IsNullOrEmpty(Path.GetExtension(fileName)))
+      {
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+
+        if (contentType != null && Helpers.CommonMimeTypes.TryGetValue(contentType, out var extension))
+        {
+          fileName += extension;
+        }
+      }
 
       // Construct the file path using the base directory and the sanitized filename
       var localFilePath = Path.GetFullPath(Path.Combine("/app/downloads", fileName));
@@ -285,5 +296,4 @@ public class FileDownloadQueueItemsController : ControllerBase
 
     return true;
   }
-
 }
