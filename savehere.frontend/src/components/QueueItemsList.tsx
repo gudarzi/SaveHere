@@ -15,38 +15,64 @@ const statusMapping = {
 }
 
 const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknown }) => {
-    const [data, setData] = useState<QueueItem[]>([]);
-    const [useHeadersForFilename, setUseHeadersForFilename] = useState(1);
-    const intervalRef = useRef<number | null>(null);
+    const [data, setData] = useState<QueueItem[]>([])
+    const [useHeadersForFilename, setUseHeadersForFilename] = useState(1)
+    const socketRef = useRef<WebSocket | null>(null)
 
-    // To Do: This is lazy and noisy... Fix it later!
     useEffect(() => {
-        intervalRef.current = setInterval(fetchList, 1000);
+        const wsUrl = "/ws"
+        socketRef.current = new WebSocket(wsUrl)
+        
+        socketRef.current.addEventListener('open', () => {
+            console.log('Connected to the WebSocket server')
+        })
+
+        socketRef.current.addEventListener('message', (event) => {
+            console.log('Message from server:', event.data)
+            if (event.data.startsWith('progress:')) {
+                const [, id, progress] = event.data.split(':')
+                setData(prevData =>
+                    prevData.map(item =>
+                        item.id === Number(id) ? { ...item, status: 1, progressPercentage: Number(progress) } : item
+                    )
+                )
+            }
+        })
+
+        socketRef.current.addEventListener('close', () => {
+            console.log('Disconnected from the WebSocket server')
+        })
+
+        socketRef.current.addEventListener('error', (error) => {
+            console.error('WebSocket error:', error)
+        })
+
+        // Cleanup on component unmount
         return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
+            if (socketRef.current) {
+                socketRef.current.close();
             }
         };
-    }, [props.dummy]);
+    }, [props.dummy])
 
     useEffect(() => {
         fetchList()
-    }, [props.dummy]);
+    }, [props.dummy])
 
     useEffect(() => {
         fetchList()
-    }, []);
+    }, [])
 
-    const fetchList = async () => await fetch('/api/FileDownloadQueueItems')
-        .then((res) => res.json())
-        .then((result) => {
-            setData(result);
-        })
-        .catch((err) => {
+    const fetchList = async () => {
+        try {
+            const res = await fetch('/api/FileDownloadQueueItems')
+            const result = await res.json()
+            setData(result)
+        } catch (err) {
             setData([])
-            console.error(err);
-        })
+            console.error(err)
+        }
+    }
 
     const requestDownload = async (id: number) => {
         try {
@@ -59,16 +85,18 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                     id,
                     useHeadersForFilename: Boolean(useHeadersForFilename)
                 }),
-            });
+            })
 
             if (response.ok) {
-                fetchList();
                 props.onDownloadFinished()
             } else {
-                console.error('Failed to download item:', response.statusText);
+                console.error('Failed to download item:', response.statusText)
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error:', error)
+        }
+        finally {
+            fetchList()
         }
     }
 
@@ -85,13 +113,15 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
             });
 
             if (response.ok) {
-                fetchList();
                 props.onDownloadFinished()
             } else {
-                console.error('Failed to cancel item:', response.statusText);
+                console.error('Failed to cancel item:', response.statusText)
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error:', error)
+        }
+        finally {
+            fetchList()
         }
     }
 
@@ -102,13 +132,14 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                     method: 'DELETE',
                 });
 
-                if (response.ok) {
-                    fetchList();
-                } else {
-                    console.error('Failed to delete item:', response.statusText);
+                if (!response.ok) {
+                    console.error('Failed to delete item:', response.statusText)
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error:', error)
+            }
+            finally {
+                fetchList()
             }
         }
 
@@ -171,4 +202,4 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     );
 }
 
-export default QueueItemsList;
+export default QueueItemsList

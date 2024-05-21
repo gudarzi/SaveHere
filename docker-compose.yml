@@ -7,8 +7,6 @@ services:
     build:
       context: .
       dockerfile: SaveHere.WebAPI/Dockerfile
-    ports:
-      - "18880:8580"
     environment:
       - "urls=http://0.0.0.0:8580"
     volumes:

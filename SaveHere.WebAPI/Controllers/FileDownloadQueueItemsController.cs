@@ -253,10 +253,11 @@ public class FileDownloadQueueItemsController : ControllerBase
             queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
             counter++;
 
-            // Save progress to the database at regular intervals
+            // Save progress to the database and inform the client at regular intervals
             if (counter >= saveInterval)
             {
               await _context.SaveChangesAsync(cancellationToken);
+              await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
               counter = 0;
             }
           }
