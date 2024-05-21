@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from "tailwindcss";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   build: {
@@ -31,13 +30,13 @@ export default defineConfig({
       '^/filemanager': {
         target: "http://localhost",
         secure: false
+      },
+      '^/ws': {
+        target: "ws://localhost",
+        ws: true
       }
     },
     host: '0.0.0.0',
-    port: 5173,
-    // https: {
-    //     key: fs.readFileSync(keyFilePath),
-    //     cert: fs.readFileSync(certFilePath),
-    // }
+    port: 5173
   },
 })
