@@ -105,7 +105,7 @@ public static class Helpers
     { "application/java-archive", ".jar" },
     { "application/json", ".json" },
     { "application/msword", ".doc" },
-    { "application/octet-stream", ".bin" }, //can also be .exe
+    { "application/octet-stream", ".exe" }, // can also be .bin (but .exe is more common)
     { "application/ogg", ".ogx" },
     { "application/pdf", ".pdf" },
     { "application/rtf", ".rtf" },
