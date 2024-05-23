@@ -4,6 +4,7 @@ using SaveHere.WebAPI.DTOs;
 using SaveHere.WebAPI.Models;
 using SaveHere.WebAPI.Models.db;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace SaveHere.WebAPI.Controllers;
 
@@ -175,6 +176,8 @@ public class FileDownloadQueueItemsController : ControllerBase
       return false;
     }
 
+    Stopwatch stopwatch = new Stopwatch();
+
     try
     {
       var fileName = Helpers.ExtractFileNameFromUrl(queueItem.InputUrl);
@@ -235,23 +238,22 @@ public class FileDownloadQueueItemsController : ControllerBase
         using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
         var contentLength = response.Content.Headers.ContentLength;
 
+        var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
+        long totalBytesRead = 0;
+        int bytesRead;
+        double elapsedSeconds;
+        double bytesPerSecond;
+        double speedInKBs;
+
+        // To avoid slowing down the process we should not be saving changes to the context on every iteration
+        int saveInterval = 10;
+        int counter = 0;
+
+        stopwatch = Stopwatch.StartNew();
+
         // Ignore progress reporting when the ContentLength's header is not available
         if (!contentLength.HasValue)
         {
-          await download.CopyToAsync(stream, cancellationToken);
-          queueItem.ProgressPercentage = 100;
-          await _context.SaveChangesAsync(cancellationToken);
-        }
-        else
-        {
-          var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
-          long totalBytesRead = 0;
-          int bytesRead;
-
-          // To avoid slowing down the process we should not be saving changes to the context on every iteration
-          int saveInterval = 10;
-          int counter = 0;
-
           while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) != 0)
           {
             // Check if cancellation is requested
@@ -259,9 +261,48 @@ public class FileDownloadQueueItemsController : ControllerBase
             {
               throw new OperationCanceledException(cancellationToken);
             }
+
+            await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+            totalBytesRead += bytesRead;
+
+            // Calculate download speed
+            elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+            bytesPerSecond = elapsedSeconds > 0 ? totalBytesRead / elapsedSeconds : 0;
+            speedInKBs = bytesPerSecond / 1024.0;
+
+            counter++;
+
+            // Inform the client at regular intervals
+            if (counter >= saveInterval)
+            {
+              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{speedInKBs:F2}");
+              counter = 0;
+            }
+          }
+
+          queueItem.ProgressPercentage = 100;
+          await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
+          await _context.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+          while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) != 0)
+          {
+            // Check if cancellation is requested
+            if (cancellationToken.IsCancellationRequested)
+            {
+              throw new OperationCanceledException(cancellationToken);
+            }
+
             await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             totalBytesRead += bytesRead;
             queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
+
+            // Calculate download speed
+            elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+            bytesPerSecond = elapsedSeconds > 0 ? totalBytesRead / elapsedSeconds : 0;
+            speedInKBs = bytesPerSecond / 1024.0;
+
             counter++;
 
             // Save progress to the database and inform the client at regular intervals
@@ -269,11 +310,13 @@ public class FileDownloadQueueItemsController : ControllerBase
             {
               await _context.SaveChangesAsync(cancellationToken);
               await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
+              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{speedInKBs:F2}");
               counter = 0;
             }
           }
 
           // Save any remaining changes
+          await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
           await _context.SaveChangesAsync(cancellationToken);
         }
       }
@@ -292,6 +335,10 @@ public class FileDownloadQueueItemsController : ControllerBase
     catch
     {
       return false;
+    }
+    finally
+    {
+      if(stopwatch.IsRunning) stopwatch.Stop();
     }
 
     return true;

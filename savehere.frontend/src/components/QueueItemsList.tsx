@@ -4,7 +4,8 @@ interface QueueItem {
     id: number;
     inputUrl: string;
     status: 0 | 1 | 2 | 3;
-    progressPercentage: number
+    progressPercentage: number;
+    downloadSpeedInMBs: number
 }
 
 const statusMapping = {
@@ -36,6 +37,24 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                         item.id === Number(id) ? { ...item, status: 1, progressPercentage: Number(progress) } : item
                     )
                 )
+                // This helps provide accurate end-of-download information even if a refresh of the page occured
+                if (Number(progress) === 100)
+                {
+                    setData(prevData =>
+                        prevData.map(item =>
+                            item.id === Number(id) ? { ...item, status: 2, progressPercentage: 100, downloadSpeedInMBs: 0 } : item
+                        )
+                    )
+                }
+            }
+            else if (event.data.startsWith('speed:')) {
+                const [, id, speed] = event.data.split(':')
+                const formattedSpeed = (speed / 1024.0).toFixed(1) // Convert speed from KB/s to MB/s
+                setData(prevData =>
+                    prevData.map(item =>
+                        item.id === Number(id) ? { ...item, downloadSpeedInMBs: Number(formattedSpeed) } : item
+                    )
+                )
             }
         })
 
@@ -61,6 +80,22 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
 
     useEffect(() => {
         fetchList()
+    }, [])
+
+    useEffect(() => {
+        const getFormattedDateTime = () => {
+            const now = new Date();
+            return now.toLocaleString();
+        };
+
+        const interval = setInterval(() => {
+            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                console.log(`keep-alive: ${getFormattedDateTime()}`);
+                socketRef.current.send(JSON.stringify({ type: 'keep-alive' }));
+            }
+        }, 50000); // Send a keep-alive message every 50 seconds
+
+        return () => clearInterval(interval);
     }, [])
 
     const fetchList = async () => {
@@ -152,7 +187,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                     </svg>
                     {node.inputUrl}
                     <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{statusMapping[node.status]}</div>
-                    <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{node.progressPercentage}%</div>
+                    <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{node.progressPercentage}% <span className="inline-block w-20 text-right">({node.downloadSpeedInMBs ?? 0} MB/s</span>)</div>
                     <select onChange={(e) => setUseHeadersForFilename(Number(e.target.value))} className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-[#FFFFFF33]">
                         <option value="1" className="dark:bg-gray-500">Use Headers For Filename</option>
                         <option value="0" className="dark:bg-gray-500">Use Url For Filename</option>
