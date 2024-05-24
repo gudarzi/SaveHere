@@ -243,7 +243,6 @@ public class FileDownloadQueueItemsController : ControllerBase
         int bytesRead;
         double elapsedSeconds;
         double bytesPerSecond;
-        double speedInKBs;
 
         // To avoid slowing down the process we should not be saving changes to the context on every iteration
         int saveInterval = 10;
@@ -266,16 +265,16 @@ public class FileDownloadQueueItemsController : ControllerBase
             totalBytesRead += bytesRead;
 
             // Calculate download speed
-            elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-            bytesPerSecond = elapsedSeconds > 0 ? totalBytesRead / elapsedSeconds : 0;
-            speedInKBs = bytesPerSecond / 1024.0;
+            elapsedSeconds = stopwatch.Elapsed.TotalNanoseconds;
+            bytesPerSecond = elapsedSeconds > 0 ? bytesRead / elapsedSeconds * 1e9 : 0;
+            stopwatch.Restart();
 
             counter++;
 
             // Inform the client at regular intervals
             if (counter >= saveInterval)
             {
-              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{speedInKBs:F2}");
+              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{bytesPerSecond:F2}");
               counter = 0;
             }
           }
@@ -299,9 +298,9 @@ public class FileDownloadQueueItemsController : ControllerBase
             queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
 
             // Calculate download speed
-            elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-            bytesPerSecond = elapsedSeconds > 0 ? totalBytesRead / elapsedSeconds : 0;
-            speedInKBs = bytesPerSecond / 1024.0;
+            elapsedSeconds = stopwatch.Elapsed.TotalNanoseconds;
+            bytesPerSecond = elapsedSeconds > 0 ? bytesRead / elapsedSeconds*1e9 : 0;
+            stopwatch.Restart();
 
             counter++;
 
@@ -310,7 +309,7 @@ public class FileDownloadQueueItemsController : ControllerBase
             {
               await _context.SaveChangesAsync(cancellationToken);
               await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
-              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{speedInKBs:F2}");
+              await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{bytesPerSecond:F2}");
               counter = 0;
             }
           }
@@ -338,7 +337,7 @@ public class FileDownloadQueueItemsController : ControllerBase
     }
     finally
     {
-      if(stopwatch.IsRunning) stopwatch.Stop();
+      if (stopwatch.IsRunning) stopwatch.Stop();
     }
 
     return true;
