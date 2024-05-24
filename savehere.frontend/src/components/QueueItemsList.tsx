@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 
 interface QueueItem {
-    id: number;
-    inputUrl: string;
-    status: 0 | 1 | 2 | 3;
-    progressPercentage: number;
+    id: number
+    inputUrl: string
+    status: 0 | 1 | 2 | 3
+    progressPercentage: number
     downloadSpeedInBytesPerSecond: number
+    downloadSpeedInBytesPerSecondAvg: number
 }
 
 const statusMapping = {
@@ -52,6 +53,14 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                 setData(prevData =>
                     prevData.map(item =>
                         item.id === Number(id) ? { ...item, downloadSpeedInBytesPerSecond: Number(speed) } : item
+                    )
+                )
+            }
+            else if (event.data.startsWith('speedavg:')) {
+                const [, id, speed] = event.data.split(':')
+                setData(prevData =>
+                    prevData.map(item =>
+                        item.id === Number(id) ? { ...item, downloadSpeedInBytesPerSecondAvg: Number(speed) } : item
                     )
                 )
             }
@@ -201,6 +210,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                     <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{statusMapping[node.status]}</div>
                     <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{node.progressPercentage}%</div>
                     <div className="ml-1 p-1 rounded-xl whitespace-nowrap bg-gray-400 dark:bg-gray-700">{convertSize(node.downloadSpeedInBytesPerSecond) ?? "KB/s"}</div>
+                    <div className="ml-1 p-1 rounded-xl whitespace-nowrap bg-gray-400 dark:bg-gray-700">{convertSize(node.downloadSpeedInBytesPerSecondAvg) ?? "KB/s"}</div>
                     <select onChange={(e) => setUseHeadersForFilename(Number(e.target.value))} className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-[#FFFFFF33]">
                         <option value="1" className="dark:bg-gray-500">Use Headers For Filename</option>
                         <option value="0" className="dark:bg-gray-500">Use Url For Filename</option>
