@@ -1,7 +1,7 @@
 <div align="center">
   <h1>SaveHere</h1>
   <h4>Minimal Cloud File Manager</h4>
-  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/409ebf6d-6ad6-479f-a269-5987e0e66268" alt="Screen Shot of SaveHere App">
+  <img src="https://github.com/gudarzi/SaveHere/assets/30085894/22ca2996-1b04-4913-a9f5-e37cd1d75fa8" alt="Screen Shot of SaveHere App">
 </div>
 
 
