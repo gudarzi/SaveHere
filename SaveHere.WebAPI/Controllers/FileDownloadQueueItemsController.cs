@@ -176,9 +176,6 @@ public class FileDownloadQueueItemsController : ControllerBase
       return false;
     }
 
-    var stopwatch = new Stopwatch();
-    var stopwatch2 = new Stopwatch();
-
     try
     {
       var fileName = Helpers.ExtractFileNameFromUrl(queueItem.InputUrl);
@@ -242,17 +239,17 @@ public class FileDownloadQueueItemsController : ControllerBase
         var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
         long totalBytesRead = 0;
         int bytesRead;
-        double elapsedSeconds;
+        double elapsedNanoSeconds;
+        double elapsedNanoSecondsAvg;
         double bytesPerSecond;
-        double elapsedSeconds2;
-        double bytesPerSecond2;
+        double bytesPerSecondAvg;
 
         // To avoid slowing down the process we should not be saving changes to the context on every iteration
-        int saveInterval = 10;
-        int counter = 0;
+        double saveIntervalInSeconds = 0.5; // saving and updating every 0.5 second
+        double debounceInSeconds = 0;
 
-        stopwatch = Stopwatch.StartNew();
-        stopwatch2 = Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
+        var stopwatchAvg = Stopwatch.StartNew();
 
         // Ignore progress reporting when the ContentLength's header is not available
         if (!contentLength.HasValue)
@@ -269,20 +266,19 @@ public class FileDownloadQueueItemsController : ControllerBase
             totalBytesRead += bytesRead;
 
             // Calculate download speed
-            elapsedSeconds = stopwatch.Elapsed.TotalNanoseconds;
-            bytesPerSecond = elapsedSeconds > 0 ? bytesRead / elapsedSeconds * 1e9 : 0;
-            elapsedSeconds2 = stopwatch2.Elapsed.TotalNanoseconds;
-            bytesPerSecond2 = elapsedSeconds2 > 0 ? totalBytesRead / elapsedSeconds2 * 1e9 : 0;
+            elapsedNanoSeconds = stopwatch.Elapsed.TotalNanoseconds;
+            bytesPerSecond = elapsedNanoSeconds > 0 ? bytesRead / elapsedNanoSeconds * 1e9 : 0;
+            elapsedNanoSecondsAvg = stopwatchAvg.Elapsed.TotalNanoseconds;
+            bytesPerSecondAvg = elapsedNanoSecondsAvg > 0 ? totalBytesRead / elapsedNanoSecondsAvg * 1e9 : 0;
             stopwatch.Restart();
 
-            counter++;
-
             // Inform the client at regular intervals
-            if (counter >= saveInterval)
+            debounceInSeconds += elapsedNanoSeconds / 1e9;
+            if (debounceInSeconds >= saveIntervalInSeconds)
             {
               await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{bytesPerSecond:F2}");
-              await WebSocketHandler.SendMessageAsync($"speedavg:{queueItem.Id}:{bytesPerSecond2:F2}");
-              counter = 0;
+              await WebSocketHandler.SendMessageAsync($"speedavg:{queueItem.Id}:{bytesPerSecondAvg:F2}");
+              debounceInSeconds = 0;
             }
           }
 
@@ -305,22 +301,21 @@ public class FileDownloadQueueItemsController : ControllerBase
             queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
 
             // Calculate download speed
-            elapsedSeconds = stopwatch.Elapsed.TotalNanoseconds;
-            bytesPerSecond = elapsedSeconds > 0 ? bytesRead / elapsedSeconds * 1e9 : 0;
-            elapsedSeconds2 = stopwatch2.Elapsed.TotalNanoseconds;
-            bytesPerSecond2 = elapsedSeconds2 > 0 ? totalBytesRead / elapsedSeconds2 * 1e9 : 0;
+            elapsedNanoSeconds = stopwatch.Elapsed.TotalNanoseconds;
+            bytesPerSecond = elapsedNanoSeconds > 0 ? bytesRead / elapsedNanoSeconds * 1e9 : 0;
+            elapsedNanoSecondsAvg = stopwatchAvg.Elapsed.TotalNanoseconds;
+            bytesPerSecondAvg = elapsedNanoSecondsAvg > 0 ? totalBytesRead / elapsedNanoSecondsAvg * 1e9 : 0;
             stopwatch.Restart();
 
-            counter++;
-
             // Save progress to the database and inform the client at regular intervals
-            if (counter >= saveInterval)
+            debounceInSeconds += elapsedNanoSeconds / 1e9;
+            if (debounceInSeconds >= saveIntervalInSeconds)
             {
               await _context.SaveChangesAsync(cancellationToken);
               await WebSocketHandler.SendMessageAsync($"progress:{queueItem.Id}:{queueItem.ProgressPercentage}");
               await WebSocketHandler.SendMessageAsync($"speed:{queueItem.Id}:{bytesPerSecond:F2}");
-              await WebSocketHandler.SendMessageAsync($"speedavg:{queueItem.Id}:{bytesPerSecond2:F2}");
-              counter = 0;
+              await WebSocketHandler.SendMessageAsync($"speedavg:{queueItem.Id}:{bytesPerSecondAvg:F2}");
+              debounceInSeconds = 0;
             }
           }
 
@@ -344,10 +339,6 @@ public class FileDownloadQueueItemsController : ControllerBase
     catch
     {
       return false;
-    }
-    finally
-    {
-      if (stopwatch.IsRunning) stopwatch.Stop();
     }
 
     return true;
