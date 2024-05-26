@@ -241,6 +241,7 @@ public class FileDownloadQueueItemsController : ControllerBase
       }
 
       var requestMessage = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+
       if (totalBytesRead > 0)
       {
         requestMessage.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(totalBytesRead, null);
@@ -250,9 +251,17 @@ public class FileDownloadQueueItemsController : ControllerBase
 
       if (!response.IsSuccessStatusCode) return false;
 
+      // If the server supports resumption (HTTP 206), do not restart the download from scratch
+      bool restartDownload = response.StatusCode != System.Net.HttpStatusCode.PartialContent;
+
+      if (restartDownload)
+      {
+        totalBytesRead = 0;
+      }
+
       using (var download = await response.Content.ReadAsStreamAsync())
       {
-        using var stream = new FileStream(tempFilePath, FileMode.Append, FileAccess.Write);
+        using var stream = new FileStream(tempFilePath, restartDownload ? FileMode.Create : FileMode.Append, FileAccess.Write);
         var contentLength = response.Content.Headers.ContentLength;
 
         var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
