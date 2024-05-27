@@ -219,25 +219,52 @@ public class FileDownloadQueueItemsController : ControllerBase
         throw new UnauthorizedAccessException("Invalid file path.");
       }
 
-      // Check if a file with the same name already exists
+      // Check for existing temp file and corresponding final file
       string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
       string fileExtension = Path.GetExtension(fileName);
+      var tempFilePath = localFilePath + ".tmp";
+      long totalBytesRead = 0;
       int digit = 1;
 
-      while (System.IO.File.Exists(localFilePath))
+      while (System.IO.File.Exists(tempFilePath) || System.IO.File.Exists(localFilePath))
       {
+        if (System.IO.File.Exists(tempFilePath))
+        {
+          totalBytesRead = new FileInfo(tempFilePath).Length;
+          break;
+        }
+
         fileName = $"{fileNameWithoutExtension}_{digit}{fileExtension}";
         localFilePath = Path.Combine("/app/downloads", fileName);
+        tempFilePath = localFilePath + ".tmp";
         digit++;
+      }
+
+      var requestMessage = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+
+      if (totalBytesRead > 0)
+      {
+        requestMessage.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(totalBytesRead, null);
+      }
+
+      response = await _httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+      if (!response.IsSuccessStatusCode) return false;
+
+      // If the server supports resumption (HTTP 206), do not restart the download from scratch
+      bool restartDownload = response.StatusCode != System.Net.HttpStatusCode.PartialContent;
+
+      if (restartDownload)
+      {
+        totalBytesRead = 0;
       }
 
       using (var download = await response.Content.ReadAsStreamAsync())
       {
-        using var stream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
+        using var stream = new FileStream(tempFilePath, restartDownload ? FileMode.Create : FileMode.Append, FileAccess.Write);
         var contentLength = response.Content.Headers.ContentLength;
 
         var buffer = new byte[81920]; // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
-        long totalBytesRead = 0;
         int bytesRead;
         double elapsedNanoSeconds;
         double elapsedNanoSecondsAvg;
@@ -324,6 +351,9 @@ public class FileDownloadQueueItemsController : ControllerBase
           await _context.SaveChangesAsync(cancellationToken);
         }
       }
+
+      // Rename temp file to final file
+      System.IO.File.Move(tempFilePath, localFilePath);
 
       // Fixing file permissions on linux
       if (OperatingSystem.IsLinux()) System.IO.File.SetUnixFileMode(localFilePath,
