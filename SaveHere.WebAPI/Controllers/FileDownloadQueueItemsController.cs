@@ -315,6 +315,9 @@ public class FileDownloadQueueItemsController : ControllerBase
         }
         else
         {
+          // Adjusted for correct progress reporting when resuming download
+          long totalContentLength = contentLength.Value + totalBytesRead;
+
           while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) != 0)
           {
             // Check if cancellation is requested
@@ -325,7 +328,7 @@ public class FileDownloadQueueItemsController : ControllerBase
 
             await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             totalBytesRead += bytesRead;
-            queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / contentLength);
+            queueItem.ProgressPercentage = (int)(100.0 * totalBytesRead / totalContentLength);
 
             // Calculate download speed
             elapsedNanoSeconds = stopwatch.Elapsed.TotalNanoseconds;
