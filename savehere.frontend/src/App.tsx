@@ -8,9 +8,99 @@ function App() {
   const [isDarkMode, setDarkMode] = useState(true);
   const [dummy1, setDummy1] = useState("")
   const [dummy2, setDummy2] = useState("")
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [versionMessage, setVersionMessage] = useState('');
 
   const toggleDarkMode = () => {
     setDarkMode(!isDarkMode);
+  };
+
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const getLatestVersion = async () => {
+      const url = 'https://raw.githubusercontent.com/gudarzi/SaveHere/master/frontend/version.json';
+
+    try
+    {
+      const response = await fetch(url);
+
+      if (response.ok)
+      {
+        const data = await response.json();
+        const latestVersion = data.current_version;
+        checkForUpdate(latestVersion);
+      }
+      else
+      {
+        setVersionMessage('Error fetching the latest version.');
+        openModal();
+      }
+    }
+    catch (error: unknown)
+    {
+      if (error instanceof Error)
+      {
+        setVersionMessage(`Error fetching the latest version: ${error.message}`);
+      }
+      else
+      {
+        setVersionMessage('An unknown error occurred while fetching the latest version.');
+      }
+
+      openModal();
+    }
+  };
+
+  const getLocalVersion = async (): Promise<string | null> => {
+    try
+    {
+      const response = await fetch('/version.json');
+
+      if (response.ok)
+      {
+        const data = await response.json();
+        return data.current_version;
+      }
+      else
+      {
+        throw new Error('Local version file not found.');
+      }
+    }
+    catch (error: unknown)
+    {
+      if (error instanceof Error)
+      {
+        setVersionMessage(`Error fetching local version: ${error.message}`);
+      }
+      else
+      {
+        setVersionMessage('An unknown error occurred while fetching the local version.');
+      }
+
+      openModal();
+      return null;
+    }
+  };
+
+  const checkForUpdate = async (latestVersion: string) => {
+    const currentVersion = await getLocalVersion();
+
+    if (latestVersion !== currentVersion)
+    {
+        setVersionMessage('A new version is available! Go get it now at: https://github.com/gudarzi/SaveHere');
+    }
+    else
+    {
+      setVersionMessage('You are using the latest version.');
+    }
+
+    openModal();
   };
 
   return (
@@ -31,7 +121,7 @@ function App() {
               <rect x="10" y="38" width="140" height="2" fill="url(#textGradient)" />
             </svg>
 
-            <a href='/filemanager' target='_blank' className='p-2 m-1 rounded-xl hover:bg-gray-500 bg-gray-700'>File Manager</a>
+            <a href='/filemanager/' target='_blank' className='p-2 m-1 rounded-xl hover:bg-gray-500 bg-gray-700'>File Manager</a>
             <a href='/swagger/index.html' target='_blank' className='p-2 m-1 rounded-xl hover:bg-gray-500 bg-gray-700'>Swagger</a>
           </div>
 
@@ -50,6 +140,12 @@ function App() {
               </svg>
             }
           </button>
+          <button className="p-1 rounded-full hover:bg-[#FFFFFF33] ml-2" onClick={getLatestVersion}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-6 h-6">
+              <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16z" />
+              <path d="M12 11.293l4.146-4.147.708.708L12 12.707l-4.854-4.853.708-.708L12 11.293z" />
+            </svg>
+          </button>
         </div>
       </nav>
 
@@ -58,6 +154,16 @@ function App() {
       <QueueItemsList dummy={dummy1} onDownloadFinished={() => setDummy2(dummy2 + 1)} />
 
       <DownloadedFilesList dummy={dummy2} />
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Check for Updates</h2>
+            <div>{versionMessage}</div>
+            <button onClick={closeModal}>Close</button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
