@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Modal } from 'carbon-components-react';
 
 interface QueueItem {
     id: number
@@ -16,9 +17,17 @@ const statusMapping = {
     3: 'Cancelled',
 }
 
+const videoFilesExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv',
+     'flv', 'webm', '3gp', 'ogg', 'mpg', 'mpeg', 'm4v', 'ts', 
+     'm2ts', 'mts', 'vob', 'divx', 'xvid', 'rm', 'rmvb', 'asf', 
+     'dat', 'f4v', 'h264', 'h265', 'hevc',
+     'avchd', 'mxf', 'ogv', 'qt', 'yuv', 'mod', 'tod', 'svi', 
+     'm2v', 'm2p', 'm2t', 'm2ts', 'm2v', 'm4v', 'm4p', 'm4b', 'm4r', '3g2'];
+
 const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknown }) => {
     const [data, setData] = useState<QueueItem[]>([])
     const [useHeadersForFilename, setUseHeadersForFilename] = useState(1)
+    const [showPreviewVideoModal, setshowPreviewVideoModal] = useState(false)
     const socketRef = useRef<WebSocket | null>(null)
 
     useEffect(() => {
@@ -116,6 +125,44 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
         return `${s} ${sizeName[i]}/s`;
     };
 
+    const preview = async (id: number) => {
+        var item  = data.find(item => item.id === id);
+
+        //detetct if the file is a video file
+        var isVideoFile = false;
+        for (var i = 0; i < videoFilesExtensions.length; i++) {
+            if (item?.inputUrl.toLowerCase().endsWith(videoFilesExtensions[i])) {
+                isVideoFile = true;
+                break;
+            }
+        }
+
+        if (isVideoFile) {
+            var videoPlayer = document.getElementById("videoPlayer") as HTMLVideoElement;
+
+            // Create a video element
+            const video = document.createElement('video');
+            video.setAttribute('id', 'videoPlayer'); // Set id
+
+            // Set video attributes
+            video.setAttribute('controls', ''); // Show controls
+            video.setAttribute('autoplay', '');
+
+            // Create source element for MP4
+            const source = document.createElement('source');
+            source.setAttribute('src', item?.inputUrl as string);
+
+            video.appendChild(source);
+
+            if (videoPlayer) {
+                document.getElementById("videoPlayerContainer")?.removeChild(document.getElementById("videoPlayer")?.firstChild as Node);
+            }
+
+            document.getElementById("videoPlayerContainer")?.appendChild(video);
+            setshowPreviewVideoModal(true);
+        }
+    }
+
     const fetchList = async () => {
         try {
             const res = await fetch('/api/FileDownloadQueueItems')
@@ -178,6 +225,31 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
         }
     }
 
+    function closeModal() {
+        setshowPreviewVideoModal(false);
+        let video = document.getElementById("videoPlayer") as HTMLVideoElement;
+        video.pause();
+        let videoContainer = document.getElementById("videoPlayerContainer");
+        if (videoContainer) {
+            videoContainer.removeChild(video);
+        }
+    }
+
+    const isVideoFile = (itemId: number) => {
+        var item  = data.find(item => item.id === itemId);
+
+        //detetct if the file is a video file
+        var isVideoFile = false;
+        for (var i = 0; i < videoFilesExtensions.length; i++) {
+            if (item?.inputUrl.toLowerCase().endsWith(videoFilesExtensions[i])) {
+                isVideoFile = true;
+                break;
+            }
+        }
+
+        return isVideoFile;
+    }
+
     const renderNode = (node: QueueItem) => {
         const handleDelete = async () => {
             try {
@@ -231,6 +303,11 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                                 <path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
                             </svg>
                         </button>
+                        <button onClick={() => preview(node.id)} className="p-1 rounded-full hover:bg-[#FFFFFF33]" disabled={!isVideoFile(node.id)}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12A3 3 0 1112 9a3 3 0 013 3zm7.242-1.757a12 12 0 00-2.868-3.69A10 10 0 0012 4a10 10 0 00-7.374 3.19 12 12 0 00-2.868 3.69 1.25 1.25 0 000 1.515 12 12 0 002.868 3.69A10 10 0 0012 20a10 10 0 007.374-3.19 12 12 0 002.868-3.69 1.25 1.25 0 000-1.515z" />
+                            </svg>
+                        </button>
                     </div>
                 </li>
             </>
@@ -239,6 +316,19 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
 
     return (
         <div className="p-3 bg-slate-100 dark:bg-gray-600 rounded-md w-4/5 mx-auto my-1">
+            
+                
+            <Modal
+                open={showPreviewVideoModal}
+                modalHeading="Preview video file"
+                onRequestClose={closeModal}   // Callback for closing the modal
+                primaryButtonDisabled={true} // Set to true to disable the primary button
+                secondaryButtonText="Close"  // Text for the secondary button
+            >
+                <div id="videoPlayerContainer">
+                </div>
+            </Modal>
+                
             <div className='flex flex-row'>
                 <h3 className="font-bold text-lg ml-2 dark:text-slate-100">
                     Download Queue
