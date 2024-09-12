@@ -15,7 +15,7 @@ services:
     privileged: true
     volumes:
       - ./downloads:/app/downloads
-      - ./db:/app/db
+      - ./db:/app/db:rw
 
   nginx:
     image: nginx:latest
