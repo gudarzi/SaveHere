@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PreviewVideoFile } from './VideoFilePreview';
 
 interface FileSystemInfo {
     Name: string;
@@ -95,6 +96,8 @@ const DownloadedFilesList = (props: { dummy: string }) => {
                             </svg>
                         </button>
                     </div>
+                    <PreviewVideoFile videoUrl={window.location.protocol + '//' + window.location.host + '/files/' + node.Name} />
+
                 </li>
             );
         }
