@@ -5,6 +5,7 @@ using SaveHere.WebAPI.Models;
 using SaveHere.WebAPI.Models.db;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net;
 
 namespace SaveHere.WebAPI.Controllers;
 
@@ -80,6 +81,7 @@ public class FileDownloadQueueItemsController : ControllerBase
   [HttpPost("canceldownload")]
   public IActionResult CancelFileDownload([FromBody] FileDownloadCancelRequestDTO request)
   {
+
     if (!ModelState.IsValid)
     {
       return BadRequest(ModelState);
@@ -107,6 +109,10 @@ public class FileDownloadQueueItemsController : ControllerBase
   [HttpPost("startdownload")]
   public async Task<IActionResult> StartFileDownload([FromBody] FileDownloadQueueItemRequestDTO request)
   {
+    Console.WriteLine("StartFileDownload");
+    Console.WriteLine(request.Id);
+    Console.WriteLine(request.UseHeadersForFilename);
+    Console.WriteLine(request.proxyServer.Host);
     if (!ModelState.IsValid)
     {
       return BadRequest(ModelState);
@@ -133,7 +139,7 @@ public class FileDownloadQueueItemsController : ControllerBase
 
     try
     {
-      var downloadResult = await DownloadFile(fileDownloadQueueItem, request.UseHeadersForFilename ?? true, cts.Token);
+      var downloadResult = await DownloadFile(fileDownloadQueueItem, request.UseHeadersForFilename ?? true, cts.Token, request.proxyServer);
 
       if (downloadResult)
       {
@@ -166,8 +172,9 @@ public class FileDownloadQueueItemsController : ControllerBase
   }
 
   [NonAction]
-  public async Task<bool> DownloadFile(FileDownloadQueueItem queueItem, bool UseHeadersForFilename, CancellationToken cancellationToken)
+  public async Task<bool> DownloadFile(FileDownloadQueueItem queueItem, bool UseHeadersForFilename, CancellationToken cancellationToken, ProxyServer? proxyServer = null)
   {
+    Console.WriteLine("Downloading file...step1");
     // Validate the URL (must use either HTTP or HTTPS schemes)
     if (string.IsNullOrEmpty(queueItem.InputUrl) ||
         !Uri.TryCreate(queueItem.InputUrl, UriKind.Absolute, out Uri? uriResult) ||
@@ -178,9 +185,44 @@ public class FileDownloadQueueItemsController : ControllerBase
 
     try
     {
+      var httpClient = _httpClient;
+      Console.WriteLine("Downloading file...step2");
+      Console.WriteLine(proxyServer);
+      if (proxyServer != null) {
+        var url = proxyServer.Protocol + "://" + proxyServer.Host + ":" + proxyServer.Port;
+        Console.WriteLine(url);
+        var proxy = new WebProxy
+        {
+            Address = new Uri(url),
+            BypassProxyOnLocal = false,
+            //Credentials = new NetworkCredential(username, password)
+        };
+
+        var httpClientHandler = new HttpClientHandler
+        {
+            Proxy = proxy,
+            UseProxy = true
+        };
+
+        httpClient = new HttpClient(httpClientHandler);
+
+      }
+
+
       var fileName = Helpers.ExtractFileNameFromUrl(queueItem.InputUrl);
 
-      var response = await _httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+      try
+      {
+              var res = await httpClient.GetAsync("https://dummy.me");
+
+      }
+      catch (System.Exception e)
+      {
+        
+        Console.WriteLine(e.Message);
+      }
+
+      var response = await httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
       if (!response.IsSuccessStatusCode) return false;
 
@@ -369,11 +411,44 @@ public class FileDownloadQueueItemsController : ControllerBase
       // Rethrow the OperationCanceledException to be caught by the caller
       throw;
     }
-    catch
+    catch (Exception e)
     {
+      Console.WriteLine(e.Message);
       return false;
     }
 
     return true;
+  }
+
+  [HttpPost("testconnection")]
+  public async Task<IActionResult> TestConnectionWithProxy([FromBody] ProxyServer proxyServer)
+  {
+    try
+    {
+      var url = proxyServer.Protocol + "://" + proxyServer.Host + ":" + proxyServer.Port;
+      Console.WriteLine(url);
+      var proxy = new WebProxy
+      {
+          Address = new Uri(url),
+          BypassProxyOnLocal = false,
+          //Credentials = new NetworkCredential(username, password)
+      };
+
+      var httpClientHandler = new HttpClientHandler
+      {
+          Proxy = proxy,
+          UseProxy = true
+      };
+
+      var httpClient = new HttpClient(httpClientHandler);
+
+      var res = await httpClient.GetAsync("https://dummy.me");
+
+      return Ok(res);
+    }
+    catch (Exception ex)
+    {
+      return BadRequest(ex.Message);
+    }
   }
 }
