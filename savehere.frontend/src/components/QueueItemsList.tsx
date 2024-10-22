@@ -37,10 +37,8 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     const socketRef = useRef<WebSocket | null>(null)
     const [showProxyDownloadModal, setShowProxyDownloadModal] = useState(false)
     const [proxyServer, setProxyServer] = useState({ host: '', port: 0, protocol: '' });
-    const [proxyServerConnectionStatus, setProxyServerConnectionStatus] = useState({
-        statusId: 0,
-        error: ''
-    });
+    const [pageErrors, setPageErrors] = useState<string[]>([]);
+    const [pageInfo, setPageInfo] = useState<string[]>([]);
 
     const [loading, setLoading] = useState(false);
 
@@ -174,13 +172,16 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                 closeModal();
                 props.onDownloadFinished()
             } else {
+                setLoading(false);
                 console.error('Failed to download item:', response.statusText)
+                setPageErrors(["Failed to download item:" + response.statusText]);
             }
         } catch (error) {
             setLoading(false);
             console.error('Error:', error)
         }
         finally {
+            setLoading(false);
             fetchList()
         }
     }
@@ -218,6 +219,8 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
 
     const closeModal = (): void => {
         setShowProxyDownloadModal(false);
+        setPageErrors([]);
+        setPageInfo([]);
     }
 
     const onChangeProxyServerProtocol = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,6 +236,8 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     }
 
     const testConnection = async () => {
+        setPageErrors([]);
+        setPageInfo([]);
         try {
             setLoading(true);
             const response = await fetch(`api/FileDownloadQueueItems/testconnection`, {
@@ -248,17 +253,13 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
             if (response.ok) {
                 setLoading(false);
                 console.log('Proxy server is reachable');
-                setProxyServerConnectionStatus({
-                    statusId: 1,
-                    error: ''
-                });
+                setPageInfo(['Proxy server is reachable']);
             } else {
                 setLoading(false);
                 console.error('Failed to test proxy server:', response.statusText);
-                setProxyServerConnectionStatus({
-                    statusId: 2,
-                    error: response.statusText
-                });
+
+                setPageErrors(["Failed to connect to proxy:" + response.statusText]);
+
             }
         } catch (error) {
             console.error('Error:', error);
@@ -347,21 +348,19 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                             Use proxy server to download this file
                         </Typography>
 
-                        {
-                            proxyServerConnectionStatus.statusId == 1 ?
-                            <Alert severity="success">The server is reachable.</Alert> : null
-                        }
+                        {pageInfo.map(info => {
+                            return <Alert severity="success">{info}</Alert>
+                        })}
 
-                        {
-                            proxyServerConnectionStatus.statusId == 2 ?
-                            <Alert severity="error">{proxyServerConnectionStatus.error}</Alert> : null
-                        }
+                        {pageErrors.map(error => {
+                            return <Alert severity="error">{error}</Alert>
+                        })}
 
                         <Typography id="modal-modal-description" sx={{ mt: 2 }}> 
 
-                        <TextField id="outlined-basic" label="proxy server protocol" variant="outlined" onChange={onChangeProxyServerProtocol} />
-                        <TextField id="outlined-basic" label="proxy server url" variant="outlined" onChange={onChangeProxyServerUrl} />
-                        <TextField type='number' id="outlined-basic" label="proxy server port" variant="outlined" onChange={onChangeProxyServerPort} />
+                        <TextField id="outlined-basic" label="proxy server protocol" variant="outlined" onChange={onChangeProxyServerProtocol} value={proxyServer.protocol} />
+                        <TextField id="outlined-basic" label="proxy server url" variant="outlined" onChange={onChangeProxyServerUrl} value={proxyServer.host} />
+                        <TextField type='number' id="outlined-basic" label="proxy server port" variant="outlined" onChange={onChangeProxyServerPort} value={proxyServer.port} />
 
                         </Typography>
                         
