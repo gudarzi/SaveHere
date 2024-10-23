@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { PreviewVideoFile } from './VideoFilePreview';
+import Modal from '@mui/material/Modal';
+import { Alert, Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 
 interface QueueItem {
     id: number
@@ -17,10 +19,30 @@ const statusMapping = {
     3: 'Cancelled',
 }
 
+const style = {
+    position: 'absolute' as 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 'auto',
+    bgcolor: 'background.paper',
+    border: '2px solid #000',
+    boxShadow: 24,
+    p: 4,
+};
+
 const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknown }) => {
     const [data, setData] = useState<QueueItem[]>([])
     const [useHeadersForFilename, setUseHeadersForFilename] = useState(1)
     const socketRef = useRef<WebSocket | null>(null)
+    const [showProxyDownloadModal, setShowProxyDownloadModal] = useState(false)
+    const [proxyServer, setProxyServer] = useState({ host: '', port: 0, protocol: '' });
+    const [pageErrors, setPageErrors] = useState<string[]>([]);
+    const [pageInfo, setPageInfo] = useState<string[]>([]);
+
+    const [loading, setLoading] = useState(false);
+
+    const [fileId, setFileId] = useState(0);
 
     useEffect(() => {
         const wsUrl = "/ws"
@@ -130,7 +152,9 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     }
 
     const requestDownload = async (id: number) => {
+        setLoading(true);
         try {
+            console.log(proxyServer);   
             const response = await fetch(`api/FileDownloadQueueItems/startdownload`, {
                 method: 'POST',
                 headers: {
@@ -138,19 +162,26 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                 },
                 body: JSON.stringify({
                     id,
-                    useHeadersForFilename: Boolean(useHeadersForFilename)
+                    useHeadersForFilename: Boolean(useHeadersForFilename),
+                    proxyServer: proxyServer,
                 }),
             })
 
             if (response.ok) {
+                setLoading(false);
+                closeModal();
                 props.onDownloadFinished()
             } else {
+                setLoading(false);
                 console.error('Failed to download item:', response.statusText)
+                setPageErrors(["Failed to download item:" + response.statusText]);
             }
         } catch (error) {
+            setLoading(false);
             console.error('Error:', error)
         }
         finally {
+            setLoading(false);
             fetchList()
         }
     }
@@ -177,6 +208,61 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
         }
         finally {
             fetchList()
+        }
+    }
+
+    const handleRequestProxyDownload = async (nodeId: number) => {
+        console.log('Requesting proxy download for:', nodeId);
+        setShowProxyDownloadModal(true);
+        setFileId(nodeId);
+    }
+
+    const closeModal = (): void => {
+        setShowProxyDownloadModal(false);
+        setPageErrors([]);
+        setPageInfo([]);
+    }
+
+    const onChangeProxyServerProtocol = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setProxyServer({ ...proxyServer, protocol: event.target.value });
+    }
+
+    const onChangeProxyServerUrl = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setProxyServer({ ...proxyServer, host: event.target.value });
+    }
+
+    const onChangeProxyServerPort = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setProxyServer({ ...proxyServer, port: Number(event.target.value) });
+    }
+
+    const testConnection = async () => {
+        setPageErrors([]);
+        setPageInfo([]);
+        try {
+            setLoading(true);
+            const response = await fetch(`api/FileDownloadQueueItems/testconnection`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(
+                    proxyServer
+                ),
+            });
+
+            if (response.ok) {
+                setLoading(false);
+                console.log('Proxy server is reachable');
+                setPageInfo(['Proxy server is reachable']);
+            } else {
+                setLoading(false);
+                console.error('Failed to test proxy server:', response.statusText);
+
+                setPageErrors(["Failed to connect to proxy:" + response.statusText]);
+
+            }
+        } catch (error) {
+            console.error('Error:', error);
         }
     }
 
@@ -233,6 +319,12 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                                 <path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
                             </svg>
                         </button>
+                        <button onClick={() => handleRequestProxyDownload(node.id)} className="p-1 rounded-full hover:bg-[#FFFFFF33]">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
+                            </svg>
+                        </button>
+
                         <PreviewVideoFile videoUrl={node.inputUrl} />
                     </div>
                 </li>
@@ -243,7 +335,49 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     return (
         <div className="p-3 bg-slate-100 dark:bg-gray-600 rounded-md w-4/5 mx-auto my-1">
             
-                
+            <Modal
+                open={showProxyDownloadModal}
+                onClose={closeModal}
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box sx={style}>
+                {loading ? <CircularProgress /> : 
+                    <>
+                        <Typography id="modal-modal-title" variant="h6" component="h2">
+                            Use proxy server to download this file
+                        </Typography>
+
+                        {pageInfo.map(info => {
+                            return <Alert severity="success">{info}</Alert>
+                        })}
+
+                        {pageErrors.map(error => {
+                            return <Alert severity="error">{error}</Alert>
+                        })}
+
+                        <Typography id="modal-modal-description" sx={{ mt: 2 }}> 
+
+                        <TextField id="outlined-basic" label="proxy server protocol" variant="outlined" onChange={onChangeProxyServerProtocol} value={proxyServer.protocol} />
+                        <TextField id="outlined-basic" label="proxy server url" variant="outlined" onChange={onChangeProxyServerUrl} value={proxyServer.host} />
+                        <TextField type='number' id="outlined-basic" label="proxy server port" variant="outlined" onChange={onChangeProxyServerPort} value={proxyServer.port} />
+
+                        </Typography>
+                        
+                        <Typography id="modal-modal-description" sx={{ mt: 2 }}> 
+                        
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <Button style={{marginRight: "10px"}} variant="contained" onClick={() => requestDownload(fileId)} >Download</Button>
+
+                        <Button style={{marginRight: "10px"}} variant="contained" onClick={testConnection} >test connection</Button>
+
+                        <Button variant="text" onClick={closeModal}>cancel</Button>
+                        </div>
+                        </Typography>
+                        </>
+                    }
+                </Box>
+            </Modal>
             <div className='flex flex-row'>
                 <h3 className="font-bold text-lg ml-2 dark:text-slate-100">
                     Download Queue
