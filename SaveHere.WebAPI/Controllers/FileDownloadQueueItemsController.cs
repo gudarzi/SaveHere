@@ -188,20 +188,21 @@ public class FileDownloadQueueItemsController : ControllerBase
       var httpClient = _httpClient;
       Console.WriteLine("Downloading file...step2");
       Console.WriteLine(proxyServer);
-      if (proxyServer != null) {
+      if (proxyServer != null && !(string.IsNullOrWhiteSpace(proxyServer.Protocol) || string.IsNullOrWhiteSpace(proxyServer.Host) || proxyServer.Port == 0))
+      {
         var url = proxyServer.Protocol + "://" + proxyServer.Host + ":" + proxyServer.Port;
         Console.WriteLine(url);
         var proxy = new WebProxy
         {
-            Address = new Uri(url),
-            BypassProxyOnLocal = false,
-            //Credentials = new NetworkCredential(username, password)
+          Address = new Uri(url),
+          BypassProxyOnLocal = false,
+          //Credentials = new NetworkCredential(username, password)
         };
 
         var httpClientHandler = new HttpClientHandler
         {
-            Proxy = proxy,
-            UseProxy = true
+          Proxy = proxy,
+          UseProxy = true
         };
 
         httpClient = new HttpClient(httpClientHandler);
@@ -213,12 +214,12 @@ public class FileDownloadQueueItemsController : ControllerBase
 
       try
       {
-              var res = await httpClient.GetAsync("https://dummy.me");
+        var res = await httpClient.GetAsync("https://dummy.me");
 
       }
       catch (System.Exception e)
       {
-        
+
         Console.WriteLine(e.Message);
       }
 
@@ -429,15 +430,15 @@ public class FileDownloadQueueItemsController : ControllerBase
       Console.WriteLine(url);
       var proxy = new WebProxy
       {
-          Address = new Uri(url),
-          BypassProxyOnLocal = false,
-          //Credentials = new NetworkCredential(username, password)
+        Address = new Uri(url),
+        BypassProxyOnLocal = false,
+        //Credentials = new NetworkCredential(username, password)
       };
 
       var httpClientHandler = new HttpClientHandler
       {
-          Proxy = proxy,
-          UseProxy = true
+        Proxy = proxy,
+        UseProxy = true
       };
 
       var httpClient = new HttpClient(httpClientHandler);
