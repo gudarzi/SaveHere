@@ -5,7 +5,7 @@ import tailwindcss from "tailwindcss";
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: '../frontend',
+    outDir: '../backend/wwwroot',
     emptyOutDir: true,
   },
   css: {
@@ -16,23 +16,23 @@ export default defineConfig({
   server: {
     proxy: {
       '^/api': {
-        target: "http://localhost",
+        target: "http://localhost:15112",
         secure: false
       },
       '^/swagger': {
-        target: "http://localhost",
+        target: "http://localhost:15112",
         secure: false
       },
       '^/files': {
-        target: "http://localhost",
+        target: "http://localhost:15112",
         secure: false
       },
       '^/filemanager': {
-        target: "http://localhost",
+        target: "http://localhost:15112",
         secure: false
       },
       '^/ws': {
-        target: "ws://localhost",
+        target: "ws://localhost:15112",
         ws: true
       }
     },

@@ -1,6 +1,6 @@
+using Microsoft.AspNetCore.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using SaveHere.WebAPI.Models.db;
-using Microsoft.AspNetCore.WebSockets;
 
 namespace SaveHere.WebAPI;
 
@@ -10,19 +10,29 @@ public class Program
   {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=/app/db/database.sqlite3.db"));
+    // Initializing the database
+    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "db");
+    if (!Directory.Exists(dbPath))
+    {
+      Directory.CreateDirectory(dbPath);
+    }
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite($"Data Source={Path.Combine(dbPath, "database.sqlite3.db")}")
+    );
+    //builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=db/database.sqlite3.db"));
 
     var apiCorsPolicy = "ApiCorsPolicy";
     builder.Services.AddCors(options =>
     {
-      options.AddPolicy(name: apiCorsPolicy,
-                        builder =>
-                        {
-                          builder
-                                  .AllowAnyOrigin()
-                                  .AllowAnyHeader()
-                                  .AllowAnyMethod();
-                        });
+      options.AddPolicy(
+        name: apiCorsPolicy,
+        builder =>
+        {
+          builder
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+        });
     });
 
     builder.Services.AddControllers();
@@ -33,6 +43,9 @@ public class Program
     builder.Services.AddScoped<HttpClient>();
 
     var app = builder.Build();
+
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
 
     // Configure WebSocket route
     app.UseWebSockets();
@@ -51,7 +64,7 @@ public class Program
       }
     });
 
-    //if (app.Environment.IsDevelopment())
+    if (app.Environment.IsDevelopment())
     {
       app.UseSwagger();
       app.UseSwaggerUI();
@@ -66,9 +79,6 @@ public class Program
       var dbc = scope.ServiceProvider.GetRequiredService<AppDbContext>();
       dbc.Database.EnsureCreated();
       dbc.Database.Migrate();
-
-      //dbc.FileDownloadQueueItems.Add(new Models.FileDownloadQueueItem() { InputUrl = "https://dummy.me" });
-      //dbc.SaveChanges();
     }
 
     app.Run();
