@@ -1,20 +1,14 @@
 import { Box } from "@mui/material";
 import Modal from "@mui/material/Modal";
 import { useState } from "react";
-
-export const videoFilesExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv',
-    'flv', 'webm', '3gp', 'ogg', 'mpg', 'mpeg', 'm4v', 'ts',
-    'm2ts', 'mts', 'vob', 'divx', 'xvid', 'rm', 'rmvb', 'asf',
-    'dat', 'f4v', 'h264', 'h265', 'hevc',
-    'avchd', 'mxf', 'ogv', 'qt', 'yuv', 'mod', 'tod', 'svi',
-    'm2v', 'm2p', 'm2t', 'm2ts', 'm2v', 'm4v', 'm4p', 'm4b', 'm4r', '3g2'];
+import { videoFilesExtensions } from "./videoFilesExtensions";
 
 export const PreviewVideoFile = (props: { videoUrl: string }) => {
     console.log(props.videoUrl);
     const [showPreviewVideoModal, setshowPreviewVideoModal] = useState(false)
 
     const isVideoFile = (url: string) => {
-        for (var i = 0; i < videoFilesExtensions.length; i++) {
+        for (let i = 0; i < videoFilesExtensions.length; i++) {
             if (url.toLowerCase().endsWith(videoFilesExtensions[i])) {
                 return true;
             }
