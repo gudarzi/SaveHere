@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # My Config
 downloads/*
+/backend/db
