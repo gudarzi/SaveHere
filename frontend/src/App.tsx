@@ -109,7 +109,7 @@ function App() {
           </div>
 
           <button className="p-1 rounded-full hover:bg-[#FFFFFF33] ml-2" onClick={getLatestVersion}>
-            <img src="/update-icon.svg" alt="update-icon" />
+            <img src="/upgrade-filled-svgrepo-com.svg" alt="update-icon" />
           </button>
           <a href='https://github.com/gudarzi/SaveHere' target='_blank' className='p-1 ml-2 rounded-full hover:bg-[#FFFFFF33]'>
             <img src="/github-icon.svg" alt="github-icon" />

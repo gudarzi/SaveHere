@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg fill="white" height="24" width="24" version="1.1" id="Filled_Icons" className="w-6 h-6"
+	xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px"
+	y="0px" viewBox="0 0 24 24" enable-background="new 0 0 24 24" xml:space="preserve">
+<g id="Upgrade-Filled">
+	<path d="M12,1C5.92,1,1,5.92,1,12s4.92,11,11,11s11-4.92,11-11S18.08,1,12,1z M16.29,12.71L13,9.41V18h-2V9.41l-3.29,3.29
+		l-1.41-1.41L12,5.59l5.71,5.71L16.29,12.71z"/>
+</g>
+</svg>
