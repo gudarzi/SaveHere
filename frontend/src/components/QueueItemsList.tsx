@@ -47,7 +47,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     useEffect(() => {
         const wsUrl = "/ws"
         socketRef.current = new WebSocket(wsUrl)
-        
+
         socketRef.current.addEventListener('open', () => {
             console.log('Connected to the WebSocket server')
         })
@@ -62,8 +62,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                     )
                 )
                 // This helps provide accurate end-of-download information even if a refresh of the page occured
-                if (Number(progress) === 100)
-                {
+                if (Number(progress) === 100) {
                     setData(prevData =>
                         prevData.map(item =>
                             item.id === Number(id) ? { ...item, status: 2, progressPercentage: 100, downloadSpeedInBytesPerSecond: 0 } : item
@@ -154,7 +153,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
     const requestDownload = async (id: number) => {
         setLoading(true);
         try {
-            console.log(proxyServer);   
+            console.log(proxyServer);
             const response = await fetch(`api/FileDownloadQueueItems/startdownload`, {
                 method: 'POST',
                 headers: {
@@ -286,14 +285,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
 
         return (
             <>
-                <li key={node.id} className="container mx-auto flex justify-between w-full p-1 text-sm font-medium text-left text-gray-800 rounded-lg focus:outline-none dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <div className="container mx-auto flex justify-left items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 m-1 dark:text-slate-300">
-                        <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625Z" />
-                        <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
-                    </svg>
-                    {node.inputUrl}
-                    </div>
+                <li key={node.id} className="container flex items-center justify-normal w-full p-1 text-sm font-medium text-left text-gray-800 rounded-lg focus:outline-none dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 flex-wrap">
 
                     <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{statusMapping[node.status]}</div>
                     <div className="ml-1 p-1 rounded-xl bg-gray-400 dark:bg-gray-700">{node.progressPercentage}%</div>
@@ -326,7 +318,18 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                         </button>
 
                         <PreviewVideoFile videoUrl={node.inputUrl} />
+
                     </div>
+
+                        {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 m-1 dark:text-slate-300 inline-block">
+                            <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625Z" />
+                            <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
+                        </svg> */}
+
+                        <div className="ml-2 flex-grow min-w-0 overflow-x-auto text-wrap break-words">
+                            {node.inputUrl}
+                        </div>
+
                 </li>
             </>
         );
@@ -334,7 +337,7 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
 
     return (
         <div className="p-3 bg-slate-100 dark:bg-gray-600 rounded-md w-4/5 mx-auto my-1">
-            
+
             <Modal
                 open={showProxyDownloadModal}
                 onClose={closeModal}
@@ -342,38 +345,38 @@ const QueueItemsList = (props: { dummy: string, onDownloadFinished: () => unknow
                 aria-describedby="modal-modal-description"
             >
                 <Box sx={style}>
-                {loading ? <CircularProgress /> : 
-                    <>
-                        <Typography id="modal-modal-title" variant="h6" component="h2">
-                            Use proxy server to download this file
-                        </Typography>
+                    {loading ? <CircularProgress /> :
+                        <>
+                            <Typography id="modal-modal-title" variant="h6" component="h2">
+                                Use proxy server to download this file
+                            </Typography>
 
-                        {pageInfo.map(info => {
-                            return <Alert severity="success">{info}</Alert>
-                        })}
+                            {pageInfo.map(info => {
+                                return <Alert severity="success">{info}</Alert>
+                            })}
 
-                        {pageErrors.map(error => {
-                            return <Alert severity="error">{error}</Alert>
-                        })}
+                            {pageErrors.map(error => {
+                                return <Alert severity="error">{error}</Alert>
+                            })}
 
-                        <Typography id="modal-modal-description" sx={{ mt: 2 }}> 
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
 
-                        <TextField id="outlined-basic" label="proxy server protocol" variant="outlined" onChange={onChangeProxyServerProtocol} value={proxyServer.protocol} />
-                        <TextField id="outlined-basic" label="proxy server url" variant="outlined" onChange={onChangeProxyServerUrl} value={proxyServer.host} />
-                        <TextField type='number' id="outlined-basic" label="proxy server port" variant="outlined" onChange={onChangeProxyServerPort} value={proxyServer.port} />
+                                <TextField id="outlined-basic" label="proxy server protocol" variant="outlined" onChange={onChangeProxyServerProtocol} value={proxyServer.protocol} />
+                                <TextField id="outlined-basic" label="proxy server url" variant="outlined" onChange={onChangeProxyServerUrl} value={proxyServer.host} />
+                                <TextField type='number' id="outlined-basic" label="proxy server port" variant="outlined" onChange={onChangeProxyServerPort} value={proxyServer.port} />
 
-                        </Typography>
-                        
-                        <Typography id="modal-modal-description" sx={{ mt: 2 }}> 
-                        
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <Button style={{marginRight: "10px"}} variant="contained" onClick={() => requestDownload(fileId)} >Download</Button>
+                            </Typography>
 
-                        <Button style={{marginRight: "10px"}} variant="contained" onClick={testConnection} >test connection</Button>
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
 
-                        <Button variant="text" onClick={closeModal}>cancel</Button>
-                        </div>
-                        </Typography>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <Button style={{ marginRight: "10px" }} variant="contained" onClick={() => requestDownload(fileId)} >Download</Button>
+
+                                    <Button style={{ marginRight: "10px" }} variant="contained" onClick={testConnection} >test connection</Button>
+
+                                    <Button variant="text" onClick={closeModal}>cancel</Button>
+                                </div>
+                            </Typography>
                         </>
                     }
                 </Box>
