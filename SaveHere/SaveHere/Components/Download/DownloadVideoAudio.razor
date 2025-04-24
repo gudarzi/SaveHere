@@ -24,119 +24,100 @@
 <MudSnackbarProvider />
 
 <LoadingIndicator IsLoaded="_isFullyLoaded">
-  <MudPaper Class="px-5 py-4 mx-5 mt-5 sv-paper" Elevation="5">
-    <MudStack Row>
-      <MudTextField @bind-Value="YoutubeUrl"
-                    Label="Video/Audio URL"
-                    Variant="Variant.Outlined"
-                    Margin="Margin.Dense"
-                    HelperText="Enter Video/Audio URL"
-                    HelperTextOnFocus="true"
-                    Adornment="Adornment.End"
-                    AdornmentIcon="@Icons.Custom.Brands.YouTube"
-                    AdornmentColor="Color.Error"
-                    Clearable="true"
-                    Immediate="true"
-                    TextUpdateSuppression="false"
-                    @onkeydown="HandleUrlInputKeyDown" />
+    <MudPaper Class="px-5 py-4 mx-5 mt-5 sv-paper" Elevation="5">
+        <MudStack Row>
+            <MudTextField @bind-Value="YoutubeUrl" Label="Video/Audio URL" Variant="Variant.Outlined"
+                Margin="Margin.Dense" HelperText="Enter Video/Audio URL" HelperTextOnFocus="true"
+                Adornment="Adornment.End" AdornmentIcon="@Icons.Custom.Brands.YouTube" AdornmentColor="Color.Error"
+                Clearable="true" Immediate="true" TextUpdateSuppression="false" @onkeydown="HandleUrlInputKeyDown" />
 
             <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled"
-                            Style="text-transform:none; box-shadow: none !important; height:40px; margin-top:0.5rem; margin-left:0.5rem;">
-                <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownload"
-                           Size="Size.Small" Style="height:40px;">Add</MudButton>
-                <MudButton StartIcon="@Icons.Material.Filled.Info" OnClick="GetFileInfo"
-                           Size="Size.Small" Style="height:40px;">Info</MudButton>
+                Style="text-transform:none; box-shadow: none !important; height:40px; margin-top:0.5rem; margin-left:0.5rem;">
+                <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownload" Size="Size.Small"
+                    Style="height:40px;">Add</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Info" OnClick="GetFileInfo" Size="Size.Small"
+                    Style="height:40px;">Info</MudButton>
             </MudButtonGroup>
-    </MudStack>
-
-        <MudStack Row>
-            <MudTextField @bind-Value="CustomFileName"
-                          Label="Custom Filename (Optional)"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          HelperText="Enter a Custom FileName"
-                          HelperTextOnFocus="true"
-                          Adornment="Adornment.End"
-                          Clearable="true"
-                          Immediate="true"
-                          TextUpdateSuppression="false"
-                          />
         </MudStack>
 
-    <MudStack Row>
-      <MudTextField @bind-Value="ProxyUrl"
-                    Label="Proxy Server"
-                    Variant="Variant.Outlined"
-                    Margin="Margin.Dense"
-                    Clearable />
+        <MudStack Row>
+            <MudTextField @bind-Value="CustomFileName" Label="Custom Filename (Optional)" Variant="Variant.Outlined"
+                Margin="Margin.Dense" HelperText="Enter a Custom FileName" HelperTextOnFocus="true"
+                Adornment="Adornment.End" Clearable="true" Immediate="true" TextUpdateSuppression="false" />
+        </MudStack>
 
-      <MudSelect @bind-Value="SelectedQuality"
-                 Label="Format & Quality"
-                 Variant="Variant.Outlined"
-                 Margin="Margin.Dense">
+        <MudStack Row>
+            <MudTextField @bind-Value="ProxyUrl" Label="Proxy Server" Variant="Variant.Outlined" Margin="Margin.Dense"
+                Clearable />
 
-        <MudSelectItem Value="@("bestvideo+bestaudio/best")">Best Quality (Auto Format)</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")">Best Quality (MP4)</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best")">Best Quality (WebM)</MudSelectItem>
+            <MudSelect @bind-Value="SelectedQuality" Label="Format & Quality" Variant="Variant.Outlined"
+                Margin="Margin.Dense">
 
-        <MudSelectItem Value="@("bestvideo[height<=2160]+bestaudio/best")">4K (2160p)</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[height<=1440]+bestaudio/best")">2K (1440p)</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[height<=1080]+bestaudio/best")">1080p</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[height<=720]+bestaudio/best")">720p</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo[height<=480]+bestaudio/best")">480p</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo+bestaudio/best")">Best Quality (Auto Format)</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")">Best Quality (MP4)
+                </MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best")">Best Quality
+                    (WebM)</MudSelectItem>
 
-        <MudSelectItem Value="@("bestaudio[ext=mp3]/bestaudio/best --extract-audio --audio-format mp3")">Best Audio (MP3)</MudSelectItem>
-        <MudSelectItem Value="@("bestaudio[ext=m4a]/bestaudio/best --extract-audio --audio-format m4a")">Best Audio (M4A)</MudSelectItem>
-        <MudSelectItem Value="@("bestaudio[ext=wav]/bestaudio/best --extract-audio --audio-format wav")">Best Audio (WAV)</MudSelectItem>
-        <MudSelectItem Value="@("bestaudio[ext=opus]/bestaudio/best --extract-audio --audio-format opus")">Best Audio (Opus)</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[height<=2160]+bestaudio/best")">4K (2160p)</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[height<=1440]+bestaudio/best")">2K (1440p)</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[height<=1080]+bestaudio/best")">1080p</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[height<=720]+bestaudio/best")">720p</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo[height<=480]+bestaudio/best")">480p</MudSelectItem>
 
-        <MudSelectItem Value="@("bestvideo+bestaudio --remux-video mp4")">Remux to MP4</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo+bestaudio --remux-video mkv")">Remux to MKV</MudSelectItem>
-        <MudSelectItem Value="@("bestvideo+bestaudio --remux-video avi")">Remux to AVI</MudSelectItem>
+                <MudSelectItem Value="@("bestaudio[ext=mp3]/bestaudio/best --extract-audio --audio-format mp3")">Best
+                    Audio (MP3)</MudSelectItem>
+                <MudSelectItem Value="@("bestaudio[ext=m4a]/bestaudio/best --extract-audio --audio-format m4a")">Best
+                    Audio (M4A)</MudSelectItem>
+                <MudSelectItem Value="@("bestaudio[ext=wav]/bestaudio/best --extract-audio --audio-format wav")">Best
+                    Audio (WAV)</MudSelectItem>
+                <MudSelectItem Value="@("bestaudio[ext=opus]/bestaudio/best --extract-audio --audio-format opus")">Best
+                    Audio (Opus)</MudSelectItem>
 
-        <MudSelectItem Value="@("worstvideo+worstaudio/worst")">Worst Quality (For Testing)</MudSelectItem>
-      </MudSelect>
+                <MudSelectItem Value="@("bestvideo+bestaudio --remux-video mp4")">Remux to MP4</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo+bestaudio --remux-video mkv")">Remux to MKV</MudSelectItem>
+                <MudSelectItem Value="@("bestvideo+bestaudio --remux-video avi")">Remux to AVI</MudSelectItem>
 
-    </MudStack>
+                <MudSelectItem Value="@("worstvideo+worstaudio/worst")">Worst Quality (For Testing)</MudSelectItem>
+            </MudSelect>
 
-    <MudStack id="my-mudstack-row-1" Row Class="mt-3">
-      <MudCheckBox @bind-Value="_autoStartPausedDownloads"
-                   Label="Autostart Paused Downloads"
-                   Color="Color.Primary"
-                   T="bool" />
+        </MudStack>
 
-      <MudNumericField @bind-Value="_maxAutoStartConcurrency"
-                       Label=""
-                       HelperText="Maximum downloads to start concurrently"
-                       Min="1"
-                       Max="10"
-                       Variant="Variant.Outlined"
-                       Margin="Margin.Dense" />
-    </MudStack>
+        <MudStack id="my-mudstack-row-1" Row Class="mt-3">
+            <MudCheckBox @bind-Value="_autoStartPausedDownloads" Label="Autostart Paused Downloads"
+                Color="Color.Primary" T="bool" />
 
-    <MudStack id="my-mudstack-row-1" Row Class="mt-3">
-      <MudTextField @bind-Value="DownloadFolderName"
-                    Label="Download Folder Name (Optional)"
-                    Variant="Variant.Outlined"
-                    Margin="Margin.Dense"
-                    HelperText="Enter a folder name to save the download in. Will be created if it doesn't exist."
-                    Clearable="true" />
-    </MudStack>
+            <MudNumericField @bind-Value="_maxAutoStartConcurrency" Label=""
+                HelperText="Maximum downloads to start concurrently" Min="1" Max="10" Variant="Variant.Outlined"
+                Margin="Margin.Dense" />
+        </MudStack>
 
-    <MudText Typo="Typo.subtitle2" Class="mt-3 mx-3">
-      This component uses ytdlp to download video/audio. See
-      <MudLink OnClick="OpenSupportedSites"
-               Target="_blank"
-               Color="Color.Primary"
-               Typo="Typo.subtitle2">
-        Supported Sites
-      </MudLink>
-    </MudText>
-  </MudPaper>
+        <MudStack id="my-mudstack-row-1" Row Class="mt-3">
+            <MudTextField @bind-Value="DownloadFolderName" Label="Download Folder Name (Optional)"
+                Variant="Variant.Outlined" Margin="Margin.Dense"
+                HelperText="Enter a folder name to save the download in. Will be created if it doesn't exist."
+                Clearable="true" />
+        </MudStack>
 
-  @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        <MudStack id="my-mudstack-row-1" Row Class="mt-3">
+            <MudTextField @bind-Value="HeaderOptions" Label="Header options seperated by commas (Optional)"
+                Variant="Variant.Outlined" Margin="Margin.Dense"
+                HelperText="Enter custom headers here seperated by commas" Clearable="true" />
+        </MudStack>
+
+        <MudText Typo="Typo.subtitle2" Class="mt-3 mx-3">
+            This component uses ytdlp to download video/audio. See
+            <MudLink OnClick="OpenSupportedSites" Target="_blank" Color="Color.Primary" Typo="Typo.subtitle2">
+                Supported Sites
+            </MudLink>
+        </MudText>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
     {
-        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Elevation="10" ContentAlignment="HorizontalAlignment.Center" Class="mt-3 mx-5" ShowCloseIcon="true" CloseIconClicked="ClearErrorMessage">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Elevation="10"
+            ContentAlignment="HorizontalAlignment.Center" Class="mt-3 mx-5" ShowCloseIcon="true"
+            CloseIconClicked="ClearErrorMessage">
             @ErrorMessage
         </MudAlert>
     }
@@ -156,26 +137,20 @@
                                         <MudStack Row>
                                             @if (download.Status == EQueueItemStatus.Downloading)
                                             {
-                                                <MudButton Variant="Variant.Filled"
-                                                Color="Color.Error"
-                                                Size="Size.Small"
-                                                OnClick="() => CancelDownload(download)">
+                                                <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                                                    OnClick="() => CancelDownload(download)">
                                                     Cancel
                                                 </MudButton>
                                             }
                                             else if (download.Status != EQueueItemStatus.Downloading)
                                             {
-                                                <MudButton Variant="Variant.Filled"
-                                                Color="Color.Success"
-                                                Size="Size.Small"
-                                                OnClick="() => StartDownload(download)">
+                                                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                                                    OnClick="() => StartDownload(download)">
                                                     Start
                                                 </MudButton>
                                             }
-                                            <MudButton Variant="Variant.Filled"
-                                            Color="Color.Error"
-                                            Size="Size.Small"
-                                            OnClick="() => RemoveDownload(download)">
+                                            <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                                                OnClick="() => RemoveDownload(download)">
                                                 Remove
                                             </MudButton>
                                         </MudStack>
@@ -230,6 +205,8 @@
     private string? CustomFileName { get; set; }
     private string? DownloadFolderName { get; set; }
 
+    private string? HeaderOptions { get; set; }
+
     private List<YoutubeDownloadQueueItem> _youtubeDownloadQueueItems = new();
     private bool _isLoadingTheList = false;
 
@@ -244,7 +221,8 @@
         persistingSubscription = _persistentState.RegisterOnPersisting(PersistItems);
 
         // Loading downloads list
-        if (_persistentState.TryTakeFromJson<List<YoutubeDownloadQueueItem>>(nameof(_youtubeDownloadQueueItems), out var savedItems) && savedItems != null)
+        if (_persistentState.TryTakeFromJson<List<YoutubeDownloadQueueItem>>(nameof(_youtubeDownloadQueueItems), out var
+        savedItems) && savedItems != null)
         {
             _youtubeDownloadQueueItems = savedItems;
         }
@@ -291,23 +269,24 @@
 
         // Determine the correct hub URL based on the environment
         var hubUrl = Environment.GetEnvironmentVariable("SIGNALR_HUB_URL")
-                     ?? NavigationManager.BaseUri.TrimEnd('/') + "/DownloadProgressHub";
+        ?? NavigationManager.BaseUri.TrimEnd('/') + "/DownloadProgressHub";
 
         if (!string.IsNullOrWhiteSpace(basicAuthUsername) && !string.IsNullOrWhiteSpace(basicAuthPassword))
         {
-            string credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{basicAuthUsername}:{basicAuthPassword}"));
+            string credentials =
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{basicAuthUsername}:{basicAuthPassword}"));
 
             hubConnection = new HubConnectionBuilder()
-              .WithUrl(hubUrl, options => options.Headers.Add("Authorization", $"Basic {credentials}"))
-              .WithAutomaticReconnect()
-              .Build();
+            .WithUrl(hubUrl, options => options.Headers.Add("Authorization", $"Basic {credentials}"))
+            .WithAutomaticReconnect()
+            .Build();
         }
         else
         {
             hubConnection = new HubConnectionBuilder()
-              .WithUrl(hubUrl)
-              .WithAutomaticReconnect()
-              .Build();
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
         }
 
         hubConnection.On<int, string>("DownloadStateChanged", OnDownloadStateUpdateAsync);
@@ -391,7 +370,8 @@
 
         try
         {
-            var newYoutubeDownload = await YoutubeDownloadQueueService.AddQueueItemAsync(YoutubeUrl, CustomFileName, SelectedQuality, ProxyUrl, DownloadFolderName);
+            var newYoutubeDownload = await YoutubeDownloadQueueService.AddQueueItemAsync(YoutubeUrl, CustomFileName,
+            SelectedQuality, ProxyUrl, DownloadFolderName, HeaderOptions);
             YoutubeUrl = "";
             ErrorMessage = "";
             await LoadDownloadItemsList();
@@ -416,6 +396,7 @@
             item.Proxy = ProxyUrl;
             item.DownloadFolder = DownloadFolderName;
             item.CustomFileName = CustomFileName;
+            item.HeaderOptions = HeaderOptions;
             await YoutubeDownloadQueueService.StartDownloadAsync(item);
         }
         catch (Exception exception)
@@ -487,11 +468,11 @@
     private void OpenSupportedSites()
     {
         var options = new DialogOptions
-    {
-      MaxWidth = MaxWidth.Large,
-      FullWidth = true,
-      CloseButton = true
-    };
+        {
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+            CloseButton = true
+        };
 
         DialogService.Show<MarkdownViewerDialog>("Supported Sites", options);
     }
@@ -501,17 +482,17 @@
         if (!string.IsNullOrWhiteSpace(YoutubeUrl))
         {
             var parameters = new DialogParameters
-                {
-                    { "Url", YoutubeUrl },
-                    { "Proxy", ProxyUrl },
-                    { "isYoutubeUrl", true }
-                };
+{
+{ "Url", YoutubeUrl },
+{ "Proxy", ProxyUrl },
+{ "isYoutubeUrl", true }
+};
             var options = new DialogOptions
-                {
-                    MaxWidth = MaxWidth.Large,
-                    FullWidth = true,
-                    CloseButton = true
-                };
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseButton = true
+            };
 
             DialogService.Show<FileInfoDialog>("File Info", parameters, options);
         }
@@ -521,53 +502,53 @@
         }
     }
 
-  private async Task StartPausedDownloads()
-  {
-    if (!_autoStartPausedDownloads)
+    private async Task StartPausedDownloads()
     {
-      return; // Autostart is disabled
-    }
+        if (!_autoStartPausedDownloads)
+        {
+            return; // Autostart is disabled
+        }
 
-    // Calculate how many items are already downloading
-    int currentActiveDownloads = _youtubeDownloadQueueItems
+        // Calculate how many items are already downloading
+        int currentActiveDownloads = _youtubeDownloadQueueItems
         .Count(item => item.Status == EQueueItemStatus.Downloading);
 
-    // If we're already at or above the concurrency limit, exit the function
-    if (currentActiveDownloads >= _maxAutoStartConcurrency)
-    {
-      return;
-    }
+        // If we're already at or above the concurrency limit, exit the function
+        if (currentActiveDownloads >= _maxAutoStartConcurrency)
+        {
+            return;
+        }
 
-    // Find paused items
-    var pausedItems = _youtubeDownloadQueueItems
+        // Find paused items
+        var pausedItems = _youtubeDownloadQueueItems
         .Where(item => item.Status == EQueueItemStatus.Paused)
         .ToList();
 
-    if (!pausedItems.Any())
-    {
-      return; // No paused items to start
-    }
+        if (!pausedItems.Any())
+        {
+            return; // No paused items to start
+        }
 
-    int startedCount = 0;
-    foreach (var item in pausedItems)
-    {
-      // Break if we exceed the concurrency limit
-      if (currentActiveDownloads + startedCount >= _maxAutoStartConcurrency)
-      {
-        break;
-      }
+        int startedCount = 0;
+        foreach (var item in pausedItems)
+        {
+            // Break if we exceed the concurrency limit
+            if (currentActiveDownloads + startedCount >= _maxAutoStartConcurrency)
+            {
+                break;
+            }
 
-      try
-      {
-        await StartDownload(item);
-        startedCount++;
-      }
-      catch (Exception ex)
-      {
-        ErrorMessage = $"Error autostarting download '{item.Url}': {ex.Message}";
-        Console.WriteLine($"Error autostarting download '{item.Url}': {ex.Message}");
-      }
+            try
+            {
+                await StartDownload(item);
+                startedCount++;
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error autostarting download '{item.Url}': {ex.Message}";
+                Console.WriteLine($"Error autostarting download '{item.Url}': {ex.Message}");
+            }
+        }
     }
-  }
 
 }

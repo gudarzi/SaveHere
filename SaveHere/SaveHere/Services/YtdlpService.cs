@@ -15,7 +15,7 @@ namespace SaveHere.Services
     Task<string> GetExecutablePath();
     Task<string> GetSupportedSitesFilePath();
     Task UpdateSupportedSitesFile();
-    Task DownloadVideo(int itemId, string url, string? customFileName, string quality, string proxy, string? downloadFolder, CancellationToken cancellationToken);
+    Task DownloadVideo(int itemId, string url, string? customFileName, string quality, string proxy, string? downloadFolder, string? headerOptions, CancellationToken cancellationToken);
     Task<VideoInfo?> GetVideoInfo(string url, string proxy);
   }
 
@@ -203,128 +203,128 @@ namespace SaveHere.Services
       return client;
     }
 
-        public async Task DownloadVideo(int itemId, string url, string? customfilename, string quality, string proxy, string? downloadFolder, CancellationToken cancellationToken)
+    public async Task DownloadVideo(int itemId, string url, string? customfilename, string quality, string proxy, string? downloadFolder, string? headerOptions, CancellationToken cancellationToken)
+    {
+      var executablePath = await GetExecutablePath();
+
+      // Format option
+      var formatOption = quality switch
+      {
+        "Best" or null or "" => "-f best",
+        _ => quality.Split(" --", 2) switch
         {
-            var executablePath = await GetExecutablePath();
+          [var format, var extras] => $"-f \"{format}\" --{extras}",
+          [var format] => $"-f \"{format}\"",
+          _ => "-f best\""
+        }
+      };
 
-            // Format option
-            var formatOption = quality switch
-            {
-                "Best" or null or "" => "-f best",
-                _ => quality.Split(" --", 2) switch
-                {
-                    [var format, var extras] => $"-f \"{format}\" --{extras}",
-                    [var format] => $"-f \"{format}\"",
-                    _ => "-f best\""
-                }
-            };
+      var proxyOption = !string.IsNullOrEmpty(proxy)
+          ? $"--proxy \"{proxy}\""
+          : "";
 
-            var proxyOption = !string.IsNullOrEmpty(proxy)
-                ? $"--proxy \"{proxy}\""
-                : "";
+      const string mergeOption = "--merge-output-format mp4";
 
-            const string mergeOption = "--merge-output-format mp4";
+      // Determine download path
+      string fullDownloadPath = DirectoryBrowser.DownloadsPath;
+      if (!string.IsNullOrWhiteSpace(downloadFolder))
+      {
+        string combinedPath = Path.Combine(DirectoryBrowser.DownloadsPath, downloadFolder);
+        string normalizedFullPath = Path.GetFullPath(combinedPath);
+        string normalizedBasePath = Path.GetFullPath(DirectoryBrowser.DownloadsPath);
 
-            // Determine download path
-            string fullDownloadPath = DirectoryBrowser.DownloadsPath;
-            if (!string.IsNullOrWhiteSpace(downloadFolder))
-            {
-                string combinedPath = Path.Combine(DirectoryBrowser.DownloadsPath, downloadFolder);
-                string normalizedFullPath = Path.GetFullPath(combinedPath);
-                string normalizedBasePath = Path.GetFullPath(DirectoryBrowser.DownloadsPath);
+        if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
+        {
+          fullDownloadPath = normalizedFullPath;
+        }
+      }
 
-                if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    fullDownloadPath = normalizedFullPath;
-                }
-            }
+      // Create directory if it doesn't exist
+      Directory.CreateDirectory(fullDownloadPath);
 
-            // Create directory if it doesn't exist
-            Directory.CreateDirectory(fullDownloadPath);
+      // Determine output filename logic (force yt-dlp to append correct extension)
+      string outputTemplate = !string.IsNullOrWhiteSpace(customfilename)
+          ? Path.Combine(fullDownloadPath, Path.GetFileNameWithoutExtension(customfilename) + ".%(ext)s")
+          : Path.Combine(fullDownloadPath, "%(title)s.%(ext)s");
 
-            // Determine output filename logic (force yt-dlp to append correct extension)
-            string outputTemplate = !string.IsNullOrWhiteSpace(customfilename)
-                ? Path.Combine(fullDownloadPath, Path.GetFileNameWithoutExtension(customfilename) + ".%(ext)s")
-                : Path.Combine(fullDownloadPath, "%(title)s.%(ext)s");
+      string outputOption = $"-o \"{outputTemplate}\"";
 
-            string outputOption = $"-o \"{outputTemplate}\"";
+      // Combine all args
+      string finalArgs = $"{formatOption} {proxyOption} {mergeOption} {outputOption} {headerOptions} \"{url}\"";
 
-            // Combine all args
-            string finalArgs = $"{formatOption} {proxyOption} {mergeOption} {outputOption} \"{url}\"";
+      var startInfo = new ProcessStartInfo
+      {
+        FileName = executablePath,
+        Arguments = finalArgs,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true,
+        WorkingDirectory = fullDownloadPath
+      };
 
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = executablePath,
-                Arguments = finalArgs,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = fullDownloadPath
-            };
+      await _progressHubService.BroadcastLogUpdate(itemId, $"Running yt-dlp with arguments: {startInfo.Arguments}");
+      _logger.LogInformation("yt-dlp command: {args}", startInfo.Arguments);
 
-            await _progressHubService.BroadcastLogUpdate(itemId, $"Running yt-dlp with arguments: {startInfo.Arguments}");
-            _logger.LogInformation("yt-dlp command: {args}", startInfo.Arguments);
+      using var process = new Process { StartInfo = startInfo };
 
-            using var process = new Process { StartInfo = startInfo };
+      process.OutputDataReceived += async (sender, e) =>
+      {
+        if (!string.IsNullOrEmpty(e.Data))
+        {
+          await _progressHubService.BroadcastLogUpdate(itemId, e.Data);
+        }
+      };
 
-            process.OutputDataReceived += async (sender, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    await _progressHubService.BroadcastLogUpdate(itemId, e.Data);
-                }
-            };
+      process.ErrorDataReceived += async (sender, e) =>
+      {
+        if (!string.IsNullOrEmpty(e.Data))
+        {
+          string errorLog = $"Error: {e.Data}";
+          await _progressHubService.BroadcastLogUpdate(itemId, errorLog);
+          _logger.LogWarning("yt-dlp error: {Error}", e.Data);
+        }
+      };
 
-            process.ErrorDataReceived += async (sender, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    string errorLog = $"Error: {e.Data}";
-                    await _progressHubService.BroadcastLogUpdate(itemId, errorLog);
-                    _logger.LogWarning("yt-dlp error: {Error}", e.Data);
-                }
-            };
+      process.Start();
+      process.BeginOutputReadLine();
+      process.BeginErrorReadLine();
 
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+      try
+      {
+        await process.WaitForExitAsync(cancellationToken);
 
-            try
-            {
-                await process.WaitForExitAsync(cancellationToken);
-
-                if (process.ExitCode != 0)
-                {
-                    string exitCodeError = $"Process exited with code {process.ExitCode}";
-                    await _progressHubService.BroadcastLogUpdate(itemId, exitCodeError);
-                    throw new Exception($"yt-dlp exited with code {process.ExitCode}");
-                }
-
-                await _progressHubService.BroadcastLogUpdate(itemId, "Download completed successfully!");
-                await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Finished.ToString());
-            }
-            catch (OperationCanceledException)
-            {
-                await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Cancelled.ToString());
-                await _progressHubService.BroadcastLogUpdate(itemId, "Download was cancelled.");
-                if (!process.HasExited)
-                {
-                    process.Kill();
-                }
-                throw;
-            }
-            catch (Exception ex)
-            {
-                string exceptionError = $"Download failed: {ex.Message}";
-                await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Paused.ToString());
-                await _progressHubService.BroadcastLogUpdate(itemId, exceptionError);
-                throw;
-            }
+        if (process.ExitCode != 0)
+        {
+          string exitCodeError = $"Process exited with code {process.ExitCode}";
+          await _progressHubService.BroadcastLogUpdate(itemId, exitCodeError);
+          throw new Exception($"yt-dlp exited with code {process.ExitCode}");
         }
 
+        await _progressHubService.BroadcastLogUpdate(itemId, "Download completed successfully!");
+        await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Finished.ToString());
+      }
+      catch (OperationCanceledException)
+      {
+        await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Cancelled.ToString());
+        await _progressHubService.BroadcastLogUpdate(itemId, "Download was cancelled.");
+        if (!process.HasExited)
+        {
+          process.Kill();
+        }
+        throw;
+      }
+      catch (Exception ex)
+      {
+        string exceptionError = $"Download failed: {ex.Message}";
+        await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Paused.ToString());
+        await _progressHubService.BroadcastLogUpdate(itemId, exceptionError);
+        throw;
+      }
+    }
 
-        public async Task<VideoInfo?> GetVideoInfo(string url, string proxy)
+
+    public async Task<VideoInfo?> GetVideoInfo(string url, string proxy)
     {
       try
       {
