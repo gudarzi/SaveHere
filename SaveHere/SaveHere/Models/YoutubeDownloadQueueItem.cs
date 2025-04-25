@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿﻿using System.ComponentModel.DataAnnotations;
 
 namespace SaveHere.Models
 {
@@ -22,6 +22,8 @@ namespace SaveHere.Models
       public string PersistedLog { get; set; } = string.Empty; // For saving logs in the database
 
       public string? DownloadFolder { get; set; }
+
+      public string? HeaderOptions { get; set; }
     }
   }
 }

@@ -249,7 +249,8 @@ namespace SaveHere.Services
 
             string outputOption = $"-o \"{outputTemplate}\"";
 
-            // Combine all args
+            // Combine all args\
+            // header options format: "header name: header directive"
             string finalArgs = $"{formatOption} {proxyOption} {mergeOption} {outputOption} {headerOptions} \"{url}\"";
 
             var startInfo = new ProcessStartInfo

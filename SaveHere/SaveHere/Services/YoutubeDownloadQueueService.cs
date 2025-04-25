@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿﻿using Microsoft.EntityFrameworkCore;
 using SaveHere.Models;
 using SaveHere.Models.db;
 using SaveHere.Models.SaveHere.Models;
@@ -9,6 +9,7 @@ namespace SaveHere.Services
   {
     Task<List<YoutubeDownloadQueueItem>> GetQueueItemsAsync();
     Task<YoutubeDownloadQueueItem?> GetQueueItemByIdAsync(int id);
+    Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName);
     Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName, string? headerOptions);
     //Task UpdateQueueItemAsync(YoutubeDownloadQueueItem item);
     Task UpdateItemStateAsync(int itemId, EQueueItemStatus newStatus);
@@ -73,6 +74,34 @@ namespace SaveHere.Services
       return item;
     }
 
+public async Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName)
+    {
+      if (string.IsNullOrWhiteSpace(url))
+      {
+        throw new ArgumentException("URL cannot be empty", nameof(url));
+      }
+
+      if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+      {
+        throw new ArgumentException("URL is not valid", nameof(url));
+      }
+
+      var item = new YoutubeDownloadQueueItem
+      {
+        Url = url,
+        CustomFileName = customFileName,
+        Quality = selectedQuality,
+        Proxy = proxyUrl,
+        DownloadFolder = downloadFolderName,
+        Status = EQueueItemStatus.Paused
+      };
+
+      await using var context = await _contextFactory.CreateDbContextAsync();
+      context.YoutubeDownloadQueueItems.Add(item);
+      await context.SaveChangesAsync();
+
+      return item;
+    }
 
     public async Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName, string? headerOptions)
     {
