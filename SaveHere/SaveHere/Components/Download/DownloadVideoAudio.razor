@@ -8,6 +8,7 @@
 @using System.Net
 @using Microsoft.AspNetCore.SignalR.Client
 @using SaveHere.Helpers
+@using System.Security.Claims
 
 @inject AppDbContext _context
 @inject PersistentComponentState _persistentState
@@ -217,7 +218,7 @@
     private string SelectedQuality { get; set; } = "Best";
     private string ErrorMessage { get; set; } = "";
 
-    private string? DownloadFolderName { get; set; }
+    private string? DownloadFolderName { get; set; } = null;
 
     private List<YoutubeDownloadQueueItem> _youtubeDownloadQueueItems = new();
     private bool _isLoadingTheList = false;
@@ -234,7 +235,7 @@
 
         // Retrieve the user ID from the authentication state
         var authState = await AuthProvider.GetAuthenticationStateAsync();
-        userId = authState.User.Identity?.Name ?? "anonymous";
+        userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
         userFolderPath = DirectoryBrowser.GetUserDownloadsPath(userId);
         DownloadFolderName = userId;
 
@@ -386,6 +387,7 @@
 
         try
         {
+            var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
             var newYoutubeDownload = await YoutubeDownloadQueueService.AddQueueItemAsync(YoutubeUrl, SelectedQuality, ProxyUrl, DownloadFolderName);
             YoutubeUrl = "";
             ErrorMessage = "";
@@ -409,7 +411,7 @@
         {
             item.Quality = SelectedQuality;
             item.Proxy = ProxyUrl;
-            item.DownloadFolder = DownloadFolderName;
+            item.DownloadFolder = ValidateUserDownloadFolder(DownloadFolderName);
             await YoutubeDownloadQueueService.StartDownloadAsync(item);
         }
         catch (Exception exception)
@@ -562,6 +564,18 @@
         Console.WriteLine($"Error autostarting download '{item.Url}': {ex.Message}");
       }
     }
+  }
+  private string ValidateUserDownloadFolder(string? folder)
+  {
+    if (string.IsNullOrWhiteSpace(folder))
+      return userFolderPath;
+
+    var combinedPath = Path.GetFullPath(Path.Combine(userFolderPath, folder));
+
+    if (!combinedPath.StartsWith(userFolderPath, StringComparison.OrdinalIgnoreCase))
+      throw new InvalidOperationException("Invalid folder path.");
+
+    return combinedPath;
   }
 
 }
