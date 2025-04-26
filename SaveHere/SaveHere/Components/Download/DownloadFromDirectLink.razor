@@ -248,7 +248,8 @@
 
   private string UrlText { get; set; } = "";
   private string ErrorMessage { get; set; } = "";
-
+  
+  private string? CustomFileName { get; set; }
   private string? DownloadFolderName { get; set; } = null;
 
   private List<FileDownloadQueueItem> _fileDownloadQueueItems = new();
@@ -493,7 +494,7 @@
         int mbs = _maxBytesPerSecond;
         if (!_useMaxDownloadSpeedLimit) mbs = -1;
         var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
-        var newFileDownload = new FileDownloadQueueItem() { InputUrl = UrlText, MaxBytesPerSecond = mbs, DownloadFolder = validatedFolder };
+        var newFileDownload = new FileDownloadQueueItem() { InputUrl = UrlText, CustomFileName = CustomFileName, MaxBytesPerSecond = mbs, DownloadFolder = validatedFolder };
 
         _context.FileDownloadQueueItems.Add(newFileDownload);
         await _context.SaveChangesAsync();
@@ -524,7 +525,7 @@
     try
     {
       var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
-      await DownloadQueueService.StartDownloadAsync(item.Id, validatedFolder);
+      await DownloadQueueService.StartDownloadAsync(item.Id, CustomFileName, validatedFolder);
 
     }
     catch (Exception exception)
