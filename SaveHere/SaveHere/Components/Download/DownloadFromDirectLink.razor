@@ -12,6 +12,7 @@
 
 @rendermode InteractiveServer
 @attribute [StreamRendering]
+@inject AuthenticationStateProvider AuthProvider
 
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -212,7 +213,7 @@
     </MudPaper>
   }
 
-  <FileManager @ref="fileManager" />
+  <FileManager UserId="@userId" CurrentPath="@userFolderPath" @ref="fileManager" />
 </LoadingIndicator>
 
 @code {
@@ -244,7 +245,8 @@
   private bool _useMaxDownloadSpeedLimit = false;
   private int _maxAutoStartConcurrency = 3;
   private int _maxBytesPerSecond = -1;
-
+  private string userId { get; set; } = "";
+  private string userFolderPath { get; set; } = string.Empty;
   private readonly ChartOptions _chartOptions = new()
   {
     LineStrokeWidth = 3,
@@ -259,6 +261,10 @@
 
   protected override async Task OnInitializedAsync()
   {
+    var authState = await AuthProvider.GetAuthenticationStateAsync();
+    userId = authState.User.Identity?.Name ?? "anonymous";
+    userFolderPath = DirectoryBrowser.GetUserDownloadsPath(userId);
+    DownloadFolderName = userId;
     persistingSubscription = _persistentState.RegisterOnPersisting(PersistItems);
 
     // Loading downloads list

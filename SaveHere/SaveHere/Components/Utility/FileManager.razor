@@ -152,8 +152,9 @@
   [Parameter] public EventCallback OnFilesChanged { get; set; }
 
   [Parameter] public string? CurrentPath { get; set; }
-
-  private string _currentDirectory = DirectoryBrowser.DownloadsPath;
+  [Parameter] public string? UserId { get; set; }
+  private string _userRootPath = string.Empty;
+  private string _currentDirectory = string.Empty;
 
   private HashSet<FileSystemItem> SelectedItems = new HashSet<FileSystemItem>();
 
@@ -163,10 +164,13 @@
   {
     if (AutoLoad)
     {
-      if (!string.IsNullOrEmpty(CurrentPath))
+      if (string.IsNullOrEmpty(UserId))
       {
-        _currentDirectory = CurrentPath;
+        errorMessage = "User ID is required.";
+        return;
       }
+      _userRootPath = DirectoryBrowser.GetUserDownloadsPath(UserId);
+      _currentDirectory = !string.IsNullOrEmpty(CurrentPath) ? CurrentPath : _userRootPath;
       await LoadFiles();
       UpdateBreadcrumbs();
     }
@@ -204,10 +208,10 @@
   private void UpdateBreadcrumbs()
   {
     breadcrumbsItems.Clear();
-    var pathParts = _currentDirectory.Substring(DirectoryBrowser.DownloadsPath.Length).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
-    string currentPath = DirectoryBrowser.DownloadsPath;
+    var pathParts = _currentDirectory.Substring(_userRootPath.Length).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+    string currentPath = _userRootPath;
 
-    breadcrumbsItems.Add(new BreadcrumbItem("Downloads", href: currentPath, disabled: true));
+    breadcrumbsItems.Add(new BreadcrumbItem($"{UserId}", href: currentPath, disabled: true));
 
     foreach (var part in pathParts)
     {
@@ -219,7 +223,7 @@
 
   private async Task NavigateToDirectory(string? path)
   {
-    if (path is null) path = DirectoryBrowser.DownloadsPath;
+    if (path is null) path = _userRootPath;
     _currentDirectory = path;
     await LoadFiles();
     UpdateBreadcrumbs();

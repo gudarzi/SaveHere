@@ -7,6 +7,7 @@
 @using SaveHere.Services
 @using System.Net
 @using Microsoft.AspNetCore.SignalR.Client
+@using SaveHere.Helpers
 
 @inject AppDbContext _context
 @inject PersistentComponentState _persistentState
@@ -15,6 +16,7 @@
 @inject IYtdlpService YtdlpService
 @inject IYoutubeDownloadQueueService YoutubeDownloadQueueService
 @inject IDialogService DialogService
+@inject AuthenticationStateProvider AuthProvider
 
 @rendermode InteractiveServer
 @attribute [StreamRendering]
@@ -199,7 +201,7 @@
         }
     }
 
-    <FileManager @ref="fileManager" />
+    <FileManager UserId="@userId" CurrentPath="@userFolderPath" @ref="fileManager" />
 </LoadingIndicator>
 
 @code {
@@ -207,6 +209,8 @@
     private bool _isFullyLoaded;
     private PersistingComponentStateSubscription persistingSubscription;
     private HubConnection? hubConnection;
+    private string userId { get; set; } =  "";
+    private string userFolderPath { get; set; } = string.Empty;
 
     private string YoutubeUrl { get; set; } = "";
     private string ProxyUrl { get; set; } = @"http://localhost:8086";
@@ -227,6 +231,12 @@
     protected override async Task OnInitializedAsync()
     {
         persistingSubscription = _persistentState.RegisterOnPersisting(PersistItems);
+
+        // Retrieve the user ID from the authentication state
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        userId = authState.User.Identity?.Name ?? "anonymous";
+        userFolderPath = DirectoryBrowser.GetUserDownloadsPath(userId);
+        DownloadFolderName = userId;
 
         // Loading downloads list
         if (_persistentState.TryTakeFromJson<List<YoutubeDownloadQueueItem>>(nameof(_youtubeDownloadQueueItems), out var savedItems) && savedItems != null)

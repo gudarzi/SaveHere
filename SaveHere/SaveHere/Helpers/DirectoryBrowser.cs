@@ -166,6 +166,22 @@
       }
     }
 
+    public static string GetUserDownloadsPath(string userId)
+    {
+        if (string.IsNullOrEmpty(userId))
+            throw new ArgumentException("User ID cannot be null or empty.", nameof(userId));
+
+        // Always build on top of the original root, not _downloadsPath
+        var rootPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+        var userDownloadsPath = Path.Combine(rootPath, userId);
+
+        if (!Directory.Exists(userDownloadsPath))
+        {
+            Directory.CreateDirectory(userDownloadsPath);
+        }
+
+        return userDownloadsPath;
+    }
   }
 
   public class FileSystemItem
