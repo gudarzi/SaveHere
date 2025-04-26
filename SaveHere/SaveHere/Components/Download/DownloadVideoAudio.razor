@@ -231,7 +231,7 @@
     private string ProxyUrl { get; set; } = @"http://localhost:8086";
     private string SelectedQuality { get; set; } = "Best";
     private string ErrorMessage { get; set; } = "";
-
+    private string? CustomFileName { get; set; }
     private string? DownloadFolderName { get; set; } = null;
 
     private List<YoutubeDownloadQueueItem> _youtubeDownloadQueueItems = new();
@@ -402,7 +402,7 @@
         try
         {
             var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
-            var newYoutubeDownload = await YoutubeDownloadQueueService.AddQueueItemAsync(YoutubeUrl, SelectedQuality, ProxyUrl, DownloadFolderName);
+            var newYoutubeDownload = await YoutubeDownloadQueueService.AddQueueItemAsync(YoutubeUrl,CustomFileName, SelectedQuality, ProxyUrl, DownloadFolderName);
 
             YoutubeUrl = "";
             ErrorMessage = "";
@@ -427,7 +427,7 @@
             item.Quality = SelectedQuality;
             item.Proxy = ProxyUrl;
             item.DownloadFolder = ValidateUserDownloadFolder(DownloadFolderName);
-
+            item.CustomFileName = CustomFileName;
             await YoutubeDownloadQueueService.StartDownloadAsync(item);
         }
         catch (Exception exception)
