@@ -9,7 +9,7 @@ namespace SaveHere.Services
   {
     Task<List<YoutubeDownloadQueueItem>> GetQueueItemsAsync();
     Task<YoutubeDownloadQueueItem?> GetQueueItemByIdAsync(int id);
-    Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string selectedQuality, string proxyUrl, string? downloadFolderName);
+    Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName);
     //Task UpdateQueueItemAsync(YoutubeDownloadQueueItem item);
     Task UpdateItemStateAsync(int itemId, EQueueItemStatus newStatus);
     Task DeleteQueueItemAsync(int id);
@@ -74,14 +74,14 @@ namespace SaveHere.Services
     }
 
 
-    public async Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string selectedQuality, string proxyUrl, string? downloadFolderName)
+    public async Task<YoutubeDownloadQueueItem> AddQueueItemAsync(string url, string? customFileName, string selectedQuality, string proxyUrl, string? downloadFolderName)
     {
       if (string.IsNullOrWhiteSpace(url))
       {
         throw new ArgumentException("URL cannot be empty", nameof(url));
       }
 
-      if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out _))
       {
         throw new ArgumentException("URL is not valid", nameof(url));
       }
@@ -89,6 +89,7 @@ namespace SaveHere.Services
       var item = new YoutubeDownloadQueueItem
       {
         Url = url,
+        CustomFileName = customFileName,
         Quality = selectedQuality,
         Proxy = proxyUrl,
         DownloadFolder = downloadFolderName,
@@ -166,7 +167,7 @@ namespace SaveHere.Services
         await UpdateItemStateAsync(item.Id, EQueueItemStatus.Downloading);
         await _progressHubService.BroadcastStateChange(item.Id, item.Status.ToString());
 
-        await _ytdlpService.DownloadVideo(item.Id, item.Url, item.Quality, item.Proxy, item.DownloadFolder, token);
+        await _ytdlpService.DownloadVideo(item.Id, item.Url, item.CustomFileName, item.Quality, item.Proxy, item.DownloadFolder, token);
 
         // Ensure we capture all logs before setting status to finished
         var currentLogs = item.OutputLog.ToList();

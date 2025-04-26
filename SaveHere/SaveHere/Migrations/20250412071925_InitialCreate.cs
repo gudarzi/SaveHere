@@ -98,7 +98,8 @@ namespace SaveHere.Migrations
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
                     OutputLog = table.Column<string>(type: "TEXT", nullable: false),
                     PersistedLog = table.Column<string>(type: "TEXT", nullable: false),
-                    DownloadFolder = table.Column<string>(type: "TEXT", nullable: true)
+                    DownloadFolder = table.Column<string>(type: "TEXT", nullable: true),
+                    CustomFilename = table.Column<string>(type: "TEXT", nullable: true),
                 },
                 constraints: table =>
                 {

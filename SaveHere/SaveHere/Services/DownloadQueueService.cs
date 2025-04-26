@@ -13,7 +13,7 @@ namespace SaveHere.Services
     Task<FileDownloadQueueItem?> GetQueueItemByIdAsync(int id);
     Task<FileDownloadQueueItem> AddQueueItemAsync(string url);
     Task DeleteQueueItemAsync(int id);
-    Task StartDownloadAsync(int id, string? downloadFolderName);
+    Task StartDownloadAsync(int id, string? customFileName, string? downloadFolderName);
     Task PauseDownloadAsync(int id);
     Task CancelDownloadAsync(int id);
     Task<VideoInfo> GetFileInfo(string url);
@@ -116,7 +116,7 @@ namespace SaveHere.Services
       tokenSource.Cancel();
     }
 
-    public async Task StartDownloadAsync(int id, string? downloadFolderName)
+    public async Task StartDownloadAsync(int id, string? customFileName, string? downloadFolderName)
     {
       var item = await GetQueueItemByIdAsync(id);
 
@@ -129,6 +129,7 @@ namespace SaveHere.Services
       try
       {
         item.DownloadFolder = downloadFolderName;
+        item.CustomFileName = customFileName;
 
         item.Status = EQueueItemStatus.Downloading;
         await UpdateQueueItemAsync(item);
@@ -198,38 +199,50 @@ namespace SaveHere.Services
 
         }
 
-        var fileName = Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl);
+          var fileName = string.IsNullOrEmpty(queueItem.CustomFileName)
+          ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl)
+          : queueItem.CustomFileName;
 
-        var response = await httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
 
-        if (queueItem.bShouldGetFilenameFromHttpHeaders)
-        {
-          var contentDisposition = response.Content.Headers.ContentDisposition;
+       var response = await httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+       response.EnsureSuccessStatusCode();
 
-          if (contentDisposition != null)
-          {
-            if (!string.IsNullOrEmpty(contentDisposition.FileNameStar)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
-            else if (!string.IsNullOrEmpty(contentDisposition.FileName)) fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
-          }
-        }
+                if (string.IsNullOrWhiteSpace(queueItem.CustomFileName) && queueItem.bShouldGetFilenameFromHttpHeaders)
+                {
+                    var contentDisposition = response.Content.Headers.ContentDisposition;
 
-        // Ensure the filename is safe by removing invalid characters and making sure it cannot end up being empty
-        fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+                    if (contentDisposition != null)
+                    {
+                        if (!string.IsNullOrEmpty(contentDisposition.FileNameStar))
+                            fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileNameStar.Replace("\"", ""));
+                        else if (!string.IsNullOrEmpty(contentDisposition.FileName))
+                            fileName = System.Web.HttpUtility.UrlDecode(contentDisposition.FileName.Replace("\"", ""));
+                    }
+                }
+
+                // Ensure the filename is safe by removing invalid characters and making sure it cannot end up being empty
+                fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
         if (string.IsNullOrWhiteSpace(fileName)) fileName = "unnamed_" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
-        // Try to determine the file extension based on common mime types if the filename doesn't have one already
-        if (string.IsNullOrEmpty(Path.GetExtension(fileName)))
-        {
-          var contentType = response.Content.Headers.ContentType?.MediaType;
+                // Try to determine the file extension based on common mime types if the filename doesn't have one already
+                if (string.IsNullOrEmpty(Path.GetExtension(fileName)))
+                {
+                    var contentTypeHeader = response.Content.Headers.ContentType;
 
-          if (contentType != null && Helpers.Helpers.CommonMimeTypes.TryGetValue(contentType, out var extension))
-          {
-            fileName += extension;
-          }
-        }
+                    if (contentTypeHeader != null)
+                    {
+                        var mediaType = contentTypeHeader.MediaType;
 
-        var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+                        if (!string.IsNullOrWhiteSpace(mediaType) &&
+                            Helpers.Helpers.CommonMimeTypes.TryGetValue(mediaType, out var extension))
+                        {
+                            fileName += extension;
+                        }
+                    }
+                }
+
+
+                var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
 
         // Adding custom folders if required
         if (!string.IsNullOrWhiteSpace(queueItem.DownloadFolder))
@@ -313,17 +326,16 @@ namespace SaveHere.Services
 
           async Task UpdateProgress(int progress, double currentSpeed, double averageSpeed)
           {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            var item = await context.FileDownloadQueueItems.FindAsync(queueItem.Id);
-            if (item != null)
-            {
-              item.ProgressPercentage = progress;
-              item.CurrentDownloadSpeed = currentSpeed;
-              item.AverageDownloadSpeed = averageSpeed;
-              await context.SaveChangesAsync(cancellationToken);
-            }
 
-            var downloadProgress = new DownloadProgress()
+                        await using var context = await _contextFactory.CreateDbContextAsync();
+                        queueItem.ProgressPercentage = progress;
+                        queueItem.CurrentDownloadSpeed = currentSpeed;
+                        queueItem.AverageDownloadSpeed = averageSpeed;
+                        context.FileDownloadQueueItems.Update(queueItem);
+                        await context.SaveChangesAsync(cancellationToken);
+
+
+                        var downloadProgress = new DownloadProgress()
             {
               ItemId = queueItem.Id,
               ProgressPercentage = progress,
@@ -398,31 +410,29 @@ namespace SaveHere.Services
           stream.Close();
           File.Move(tempFilePath, localFilePath);
 
-          // Update final status with a new context
-          await using (var context = await _contextFactory.CreateDbContextAsync())
-          {
-            var item = await context.FileDownloadQueueItems.FindAsync(queueItem.Id);
-            if (item != null)
-            {
-              item.ProgressPercentage = 100;
-              item.Status = EQueueItemStatus.Finished;
 
-              await context.SaveChangesAsync();
+                    await using (var context = await _contextFactory.CreateDbContextAsync())
+                    {
+                        queueItem.ProgressPercentage = 100;
+                        queueItem.Status = EQueueItemStatus.Finished;
+                        context.FileDownloadQueueItems.Update(queueItem);
+                        await context.SaveChangesAsync();
 
-              var downloadProgress = new DownloadProgress()
-              {
-                ItemId = queueItem.Id,
-                ProgressPercentage = 100,
-                CurrentSpeed = item.CurrentDownloadSpeed,
-                AverageSpeed = item.AverageDownloadSpeed
-              };
-              await _progressHubService.BroadcastProgressUpdate(downloadProgress);
-            }
-          }
-        }
+                        var downloadProgress = new DownloadProgress()
+                        {
+                            ItemId = queueItem.Id,
+                            ProgressPercentage = 100,
+                            CurrentSpeed = queueItem.CurrentDownloadSpeed,
+                            AverageSpeed = queueItem.AverageDownloadSpeed
+                        };
+                        await _progressHubService.BroadcastProgressUpdate(downloadProgress);
+                    }
 
-        // Fixing file permissions on linux
-        if (OperatingSystem.IsLinux()) File.SetUnixFileMode(localFilePath,
+
+                }
+
+                // Fixing file permissions on linux
+                if (OperatingSystem.IsLinux()) File.SetUnixFileMode(localFilePath,
             UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead |
             UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite |
             UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);

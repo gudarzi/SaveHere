@@ -39,6 +39,20 @@
 
     </MudStack>
 
+    <MudStack Row>
+            <MudTextField @bind-Value="CustomFileName"
+                          Label="Custom Filename (Optional)"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          HelperText="Enter a Custom FileName"
+                          HelperTextOnFocus="true"
+                          Adornment="Adornment.End"
+                          Clearable="true"
+                          Immediate="true"
+                          TextUpdateSuppression="false"
+                          />
+        </MudStack>
+
     <MudStack id="my-mudstack-row-1" Row>
       <MudCheckBox @bind-Value="_autoStartPausedDownloads"
                    Label="Autostart Paused Downloads"
@@ -480,6 +494,7 @@
         if (!_useMaxDownloadSpeedLimit) mbs = -1;
         var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
         var newFileDownload = new FileDownloadQueueItem() { InputUrl = UrlText, MaxBytesPerSecond = mbs, DownloadFolder = validatedFolder };
+
         _context.FileDownloadQueueItems.Add(newFileDownload);
         await _context.SaveChangesAsync();
 
@@ -510,6 +525,7 @@
     {
       var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
       await DownloadQueueService.StartDownloadAsync(item.Id, validatedFolder);
+
     }
     catch (Exception exception)
     {

@@ -11,6 +11,7 @@ namespace SaveHere.Models
 
       [Required]
       public string Url { get; set; } = "";
+      public string? CustomFileName { get; set; }
       public string Quality { get; set; } = "";
       public string Proxy { get; set; } = "";
 

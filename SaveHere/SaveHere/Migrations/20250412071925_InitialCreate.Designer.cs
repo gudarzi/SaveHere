@@ -285,6 +285,9 @@ namespace SaveHere.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CustomFilename")
+                       .HasColumnType("TEXT");
+
                     b.Property<string>("DownloadFolder")
                         .HasColumnType("TEXT");
 
