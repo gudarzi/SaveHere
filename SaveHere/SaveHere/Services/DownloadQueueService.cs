@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Web;
 using System.Net.Http.Headers;
+using SaveHere.Services;
 
 namespace SaveHere.Services
 {
@@ -254,38 +255,12 @@ namespace SaveHere.Services
                 }
 
 
-                var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
-
-        // Adding custom folders if required
-        if (!string.IsNullOrWhiteSpace(queueItem.DownloadFolder))
-        {
-          string combinedPath = Path.Combine(downloadPath, queueItem.DownloadFolder);
-          string normalizedFullPath = Path.GetFullPath(combinedPath);
-          string normalizedBasePath = Path.GetFullPath(downloadPath);
-
-          if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
-          {
-            downloadPath = normalizedFullPath;
-          }
-          else throw new UnauthorizedAccessException("Invalid folder path.");
-
-          // Create directory if it doesn't exist
-          Directory.CreateDirectory(downloadPath);
-        }
-
-        // Construct the file path using the base directory and the sanitized filename
-        var localFilePath = Path.GetFullPath(Path.Combine(downloadPath, fileName));
-
-        // Ensure the file path is within the intended directory
-        if (!localFilePath.StartsWith(Path.GetFullPath(downloadPath), StringComparison.OrdinalIgnoreCase))
-        {
-          throw new UnauthorizedAccessException("Invalid file path.");
-        }
+        var (localFilePath, tempFilePath) = PrepareDownloadPath(queueItem, fileName);
+        var downloadPath = Path.GetDirectoryName(localFilePath) ?? throw new UnauthorizedAccessException("Invalid file path.");
 
         // Check for existing temp file and corresponding final file
         string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
         string fileExtension = Path.GetExtension(fileName);
-        var tempFilePath = localFilePath + ".tmp";
         long totalBytesRead = 0;
         int digit = 1;
 
@@ -545,30 +520,7 @@ namespace SaveHere.Services
 
       if (queueItem.InputUrl != null)
       {
-        var fileName = string.IsNullOrEmpty(queueItem.CustomFileName)
-          ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl)
-          : queueItem.CustomFileName;
-
-        var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
-      
-        // Adding custom folders if required
-        if (!string.IsNullOrWhiteSpace(queueItem.DownloadFolder))
-        {
-          string combinedPath = Path.Combine(downloadPath, queueItem.DownloadFolder);
-          string normalizedFullPath = Path.GetFullPath(combinedPath);
-          string normalizedBasePath = Path.GetFullPath(downloadPath);
-
-          if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
-          {
-            downloadPath = normalizedFullPath;
-          }
-          else throw new UnauthorizedAccessException("Invalid folder path.");
-
-          Directory.CreateDirectory(downloadPath);
-        }
-
-        var localFilePath = Path.GetFullPath(Path.Combine(downloadPath, fileName));
-        var tempFilePath = localFilePath + ".tmp";
+        var (localFilePath, tempFilePath) = PrepareDownloadPath(queueItem);
 
         // Calculate chunk size
         var totalSize = contentLength.Value;
@@ -576,6 +528,9 @@ namespace SaveHere.Services
         var tasks = new List<Task>();
         var chunkFiles = new List<string>();
 
+        // Create thread-safe progress tracker
+        var progressTracker = new ParallelDownloadProgress(queueItem.ParallelConnections, totalSize, queueItem.Id, _contextFactory, _progressHubService);
+        
         for (int i = 0; i < queueItem.ParallelConnections; i++)
         {
           var chunkStart = i * chunkSize;
@@ -583,13 +538,19 @@ namespace SaveHere.Services
           var chunkFile = $"{tempFilePath}.part{i}";
           chunkFiles.Add(chunkFile);
 
-          tasks.Add(DownloadChunk(queueItem, chunkStart, chunkEnd, chunkFile, i, cancellationToken));
+          progressTracker.SetChunkSize(i, chunkEnd - chunkStart + 1);
+          tasks.Add(DownloadChunk(queueItem, chunkStart, chunkEnd, chunkFile, i, cancellationToken, progressTracker));
         }
 
         await Task.WhenAll(tasks);
+        progressTracker.Dispose();
 
         // Merge chunks
         await MergeChunks(chunkFiles, localFilePath, cancellationToken);
+      }
+      else
+      {
+        throw new ArgumentException("InputUrl cannot be null");
       }
 
       // Update status
@@ -609,7 +570,7 @@ namespace SaveHere.Services
       await _progressHubService.BroadcastProgressUpdate(downloadProgress);
     }
 
-    private async Task DownloadChunk(FileDownloadQueueItem queueItem, long start, long end, string chunkFile, int chunkIndex, CancellationToken cancellationToken)
+    private async Task DownloadChunk(FileDownloadQueueItem queueItem, long start, long end, string chunkFile, int chunkIndex, CancellationToken cancellationToken, ParallelDownloadProgress progressTracker)
     {
       var request = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
       request.Headers.Range = new RangeHeaderValue(start, end);
@@ -627,9 +588,7 @@ namespace SaveHere.Services
       int bytesRead;
 
       var speedMeasurementStopwatch = Stopwatch.StartNew();
-      var speedMeasurementTotalStopwatch = Stopwatch.StartNew();
       long bytesReadInLastPeriod = 0;
-      long bytesReadInTotal = 0;
 
       while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) != 0)
       {
@@ -641,38 +600,64 @@ namespace SaveHere.Services
         await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
         totalBytesRead += bytesRead;
         bytesReadInLastPeriod += bytesRead;
-        bytesReadInTotal += bytesRead;
 
-        // Update progress periodically
+        // Update progress tracker periodically
         var totalMeasurementSeconds = speedMeasurementStopwatch.Elapsed.TotalSeconds;
         if (totalMeasurementSeconds >= 1)
         {
-          var chunkProgress = (int)(100.0 * totalBytesRead / chunkTotal);
-          var overallProgress = (int)((start + totalBytesRead) * 100.0 / (end - start + 1) / queueItem.ParallelConnections + chunkIndex * 100.0 / queueItem.ParallelConnections);
-          
-          await using var context = await _contextFactory.CreateDbContextAsync();
-          queueItem.ProgressPercentage = Math.Min(99, overallProgress);
-          queueItem.CurrentDownloadSpeed = bytesReadInLastPeriod / totalMeasurementSeconds;
-          queueItem.AverageDownloadSpeed = bytesReadInTotal / speedMeasurementTotalStopwatch.Elapsed.TotalSeconds;
-          context.FileDownloadQueueItems.Update(queueItem);
-          await context.SaveChangesAsync(cancellationToken);
-
-          var downloadProgress = new DownloadProgress()
-          {
-            ItemId = queueItem.Id,
-            ProgressPercentage = queueItem.ProgressPercentage,
-            CurrentSpeed = queueItem.CurrentDownloadSpeed,
-            AverageSpeed = queueItem.AverageDownloadSpeed
-          };
-          await _progressHubService.BroadcastProgressUpdate(downloadProgress);
+          var currentSpeed = bytesReadInLastPeriod / totalMeasurementSeconds;
+          progressTracker.UpdateChunkProgress(chunkIndex, totalBytesRead, currentSpeed);
 
           bytesReadInLastPeriod = 0;
           speedMeasurementStopwatch.Restart();
         }
       }
+      
+      // Final update for this chunk
+      progressTracker.UpdateChunkProgress(chunkIndex, totalBytesRead, bytesReadInLastPeriod / speedMeasurementStopwatch.Elapsed.TotalSeconds);
     }
 
-    private async Task MergeChunks(List<string> chunkFiles, string outputFile, CancellationToken cancellationToken)
+    private static (string localFilePath, string tempFilePath) PrepareDownloadPath(FileDownloadQueueItem queueItem, string? customFileName = null)
+    {
+      var fileName = string.IsNullOrEmpty(customFileName) 
+        ? (string.IsNullOrEmpty(queueItem.CustomFileName)
+          ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl!)
+          : queueItem.CustomFileName)
+        : customFileName;
+
+      var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+
+      // Adding custom folders if required
+      if (!string.IsNullOrWhiteSpace(queueItem.DownloadFolder))
+      {
+        string combinedPath = Path.Combine(downloadPath, queueItem.DownloadFolder);
+        string normalizedFullPath = Path.GetFullPath(combinedPath);
+        string normalizedBasePath = Path.GetFullPath(downloadPath);
+
+        if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
+        {
+          downloadPath = normalizedFullPath;
+        }
+        else throw new UnauthorizedAccessException("Invalid folder path.");
+
+        // Create directory if it doesn't exist
+        Directory.CreateDirectory(downloadPath);
+      }
+
+      // Construct the file path using the base directory and the sanitized filename
+      var localFilePath = Path.GetFullPath(Path.Combine(downloadPath, fileName));
+
+      // Ensure the file path is within the intended directory
+      if (!localFilePath.StartsWith(Path.GetFullPath(downloadPath), StringComparison.OrdinalIgnoreCase))
+      {
+        throw new UnauthorizedAccessException("Invalid file path.");
+      }
+
+      var tempFilePath = localFilePath + ".tmp";
+      return (localFilePath, tempFilePath);
+    }
+
+    private static async Task MergeChunks(List<string> chunkFiles, string outputFile, CancellationToken cancellationToken)
     {
       using var outputStream = new FileStream(outputFile, FileMode.Create, FileAccess.Write);
       

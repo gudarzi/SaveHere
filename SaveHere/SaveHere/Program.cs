@@ -124,12 +124,12 @@ namespace SaveHere
           {
               // Allow automatic decompression
               AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate | System.Net.DecompressionMethods.Brotli,
-              // Connection pooling settings
-              MaxConnectionsPerServer = 10,
+              // Connection pooling settings - read from configuration
+              MaxConnectionsPerServer = builder.Configuration.GetValue<int>("DownloadSettings:MaxConnectionsPerServer", 10),
               // Enable cookies if needed
               UseCookies = true
           })
-          .SetHandlerLifetime(TimeSpan.FromMinutes(5)); // Connection pool lifetime
+          .SetHandlerLifetime(TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("DownloadSettings:ConnectionPoolLifetimeMinutes", 5))); // Connection pool lifetime
 
       builder.Services.AddHttpClient();
 
