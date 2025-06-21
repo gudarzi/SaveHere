@@ -4,6 +4,7 @@ using SaveHere.Models.db;
 using System.Diagnostics;
 using System.Net;
 using System.Web;
+using System.Net.Http.Headers;
 
 namespace SaveHere.Services
 {
@@ -173,6 +174,17 @@ namespace SaveHere.Services
         throw new Exception("Invalid URL");
       }
 
+      // Check if server supports range requests for parallel downloads
+      if (queueItem.ParallelConnections > 1)
+      {
+        queueItem.SupportsRangeRequests = await CheckRangeSupport(queueItem.InputUrl, cancellationToken);
+        if (queueItem.SupportsRangeRequests)
+        {
+          await DownloadFileParallel(queueItem, cancellationToken);
+          return;
+        }
+      }
+
       try
       {
         var httpClient = _httpClient;
@@ -199,9 +211,9 @@ namespace SaveHere.Services
 
         }
 
-          var fileName = string.IsNullOrEmpty(queueItem.CustomFileName)
-          ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl)
-          : queueItem.CustomFileName;
+        var fileName = string.IsNullOrEmpty(queueItem.CustomFileName)
+        ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl)
+        : queueItem.CustomFileName;
 
 
        var response = await httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -314,8 +326,9 @@ namespace SaveHere.Services
           using var stream = new FileStream(tempFilePath, restartDownload ? FileMode.Create : FileMode.Append, FileAccess.Write);
           var contentLength = response.Content.Headers.ContentLength;
 
-          // 80KB buffer (default buffer size used by Microsoft's CopyTo method in Stream)
-          var buffer = new byte[81920];
+          // Dynamic buffer size based on user configuration
+          var bufferSize = queueItem.BufferSizeKB * 1024;
+          var buffer = new byte[bufferSize];
 
           int bytesRead;
           double speedMeasurementPeriodInSeconds = 1;
@@ -499,6 +512,177 @@ namespace SaveHere.Services
     private long? GetFileSize(HttpResponseMessage response)
     {
       return response.Content.Headers.ContentLength ?? null;
+    }
+
+    public async Task<bool> CheckRangeSupport(string url, CancellationToken cancellationToken)
+    {
+      try
+      {
+        var request = new HttpRequestMessage(HttpMethod.Head, url);
+        request.Headers.Range = new RangeHeaderValue(0, 0);
+        
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        return response.StatusCode == HttpStatusCode.PartialContent || 
+               response.Headers.AcceptRanges?.Contains("bytes") == true;
+      }
+      catch
+      {
+        return false;
+      }
+    }
+
+    public async Task DownloadFileParallel(FileDownloadQueueItem queueItem, CancellationToken cancellationToken)
+    {
+      var response = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, queueItem.InputUrl), cancellationToken);
+      var contentLength = response.Content.Headers.ContentLength;
+      
+      if (!contentLength.HasValue)
+      {
+        // Fall back to sequential download
+        await DownloadFile(queueItem, cancellationToken);
+        return;
+      }
+
+      if (queueItem.InputUrl != null)
+      {
+        var fileName = string.IsNullOrEmpty(queueItem.CustomFileName)
+          ? Helpers.Helpers.ExtractFileNameFromUrl(queueItem.InputUrl)
+          : queueItem.CustomFileName;
+
+        var downloadPath = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+      
+        // Adding custom folders if required
+        if (!string.IsNullOrWhiteSpace(queueItem.DownloadFolder))
+        {
+          string combinedPath = Path.Combine(downloadPath, queueItem.DownloadFolder);
+          string normalizedFullPath = Path.GetFullPath(combinedPath);
+          string normalizedBasePath = Path.GetFullPath(downloadPath);
+
+          if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
+          {
+            downloadPath = normalizedFullPath;
+          }
+          else throw new UnauthorizedAccessException("Invalid folder path.");
+
+          Directory.CreateDirectory(downloadPath);
+        }
+
+        var localFilePath = Path.GetFullPath(Path.Combine(downloadPath, fileName));
+        var tempFilePath = localFilePath + ".tmp";
+
+        // Calculate chunk size
+        var totalSize = contentLength.Value;
+        var chunkSize = totalSize / queueItem.ParallelConnections;
+        var tasks = new List<Task>();
+        var chunkFiles = new List<string>();
+
+        for (int i = 0; i < queueItem.ParallelConnections; i++)
+        {
+          var chunkStart = i * chunkSize;
+          var chunkEnd = (i == queueItem.ParallelConnections - 1) ? totalSize - 1 : (i + 1) * chunkSize - 1;
+          var chunkFile = $"{tempFilePath}.part{i}";
+          chunkFiles.Add(chunkFile);
+
+          tasks.Add(DownloadChunk(queueItem, chunkStart, chunkEnd, chunkFile, i, cancellationToken));
+        }
+
+        await Task.WhenAll(tasks);
+
+        // Merge chunks
+        await MergeChunks(chunkFiles, localFilePath, cancellationToken);
+      }
+
+      // Update status
+      await using var context = await _contextFactory.CreateDbContextAsync();
+      queueItem.ProgressPercentage = 100;
+      queueItem.Status = EQueueItemStatus.Finished;
+      context.FileDownloadQueueItems.Update(queueItem);
+      await context.SaveChangesAsync();
+
+      var downloadProgress = new DownloadProgress()
+      {
+        ItemId = queueItem.Id,
+        ProgressPercentage = 100,
+        CurrentSpeed = queueItem.CurrentDownloadSpeed,
+        AverageSpeed = queueItem.AverageDownloadSpeed
+      };
+      await _progressHubService.BroadcastProgressUpdate(downloadProgress);
+    }
+
+    private async Task DownloadChunk(FileDownloadQueueItem queueItem, long start, long end, string chunkFile, int chunkIndex, CancellationToken cancellationToken)
+    {
+      var request = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+      request.Headers.Range = new RangeHeaderValue(start, end);
+
+      using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+      response.EnsureSuccessStatusCode();
+
+      using var download = await response.Content.ReadAsStreamAsync();
+      using var stream = new FileStream(chunkFile, FileMode.Create, FileAccess.Write);
+
+      var bufferSize = queueItem.BufferSizeKB * 1024;
+      var buffer = new byte[bufferSize];
+      var totalBytesRead = 0L;
+      var chunkTotal = end - start + 1;
+      int bytesRead;
+
+      var speedMeasurementStopwatch = Stopwatch.StartNew();
+      var speedMeasurementTotalStopwatch = Stopwatch.StartNew();
+      long bytesReadInLastPeriod = 0;
+      long bytesReadInTotal = 0;
+
+      while ((bytesRead = await download.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) != 0)
+      {
+        if (cancellationToken.IsCancellationRequested)
+        {
+          throw new OperationCanceledException(cancellationToken);
+        }
+
+        await stream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+        totalBytesRead += bytesRead;
+        bytesReadInLastPeriod += bytesRead;
+        bytesReadInTotal += bytesRead;
+
+        // Update progress periodically
+        var totalMeasurementSeconds = speedMeasurementStopwatch.Elapsed.TotalSeconds;
+        if (totalMeasurementSeconds >= 1)
+        {
+          var chunkProgress = (int)(100.0 * totalBytesRead / chunkTotal);
+          var overallProgress = (int)((start + totalBytesRead) * 100.0 / (end - start + 1) / queueItem.ParallelConnections + chunkIndex * 100.0 / queueItem.ParallelConnections);
+          
+          await using var context = await _contextFactory.CreateDbContextAsync();
+          queueItem.ProgressPercentage = Math.Min(99, overallProgress);
+          queueItem.CurrentDownloadSpeed = bytesReadInLastPeriod / totalMeasurementSeconds;
+          queueItem.AverageDownloadSpeed = bytesReadInTotal / speedMeasurementTotalStopwatch.Elapsed.TotalSeconds;
+          context.FileDownloadQueueItems.Update(queueItem);
+          await context.SaveChangesAsync(cancellationToken);
+
+          var downloadProgress = new DownloadProgress()
+          {
+            ItemId = queueItem.Id,
+            ProgressPercentage = queueItem.ProgressPercentage,
+            CurrentSpeed = queueItem.CurrentDownloadSpeed,
+            AverageSpeed = queueItem.AverageDownloadSpeed
+          };
+          await _progressHubService.BroadcastProgressUpdate(downloadProgress);
+
+          bytesReadInLastPeriod = 0;
+          speedMeasurementStopwatch.Restart();
+        }
+      }
+    }
+
+    private async Task MergeChunks(List<string> chunkFiles, string outputFile, CancellationToken cancellationToken)
+    {
+      using var outputStream = new FileStream(outputFile, FileMode.Create, FileAccess.Write);
+      
+      foreach (var chunkFile in chunkFiles)
+      {
+        using var inputStream = new FileStream(chunkFile, FileMode.Open, FileAccess.Read);
+        await inputStream.CopyToAsync(outputStream, cancellationToken);
+        inputStream.Close();
+        File.Delete(chunkFile);
+      }
     }
   }
 }

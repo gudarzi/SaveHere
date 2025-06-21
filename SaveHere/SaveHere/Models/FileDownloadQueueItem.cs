@@ -23,5 +23,12 @@ namespace SaveHere.Models
     public string? DownloadFolder { get; set; }
 
     public List<double> SpeedHistory { get; set; } = [];
+    
+    // Download acceleration settings
+    public int ParallelConnections { get; set; } = 1;
+    public int BufferSizeKB { get; set; } = 80;
+    public bool UseHttp2 { get; set; } = true;
+    public bool EnableCompression { get; set; } = true;
+    public bool SupportsRangeRequests { get; set; } = false;
   }
 }

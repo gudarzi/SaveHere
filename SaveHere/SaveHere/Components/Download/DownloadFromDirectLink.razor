@@ -90,6 +90,56 @@
                     Clearable="true" />
     </MudStack>
 
+    <MudExpansionPanels Class="mt-3">
+      <MudExpansionPanel Text="Advanced Download Settings" Icon="@Icons.Material.Filled.Settings">
+        <MudStack>
+          <MudStack Row>
+            <MudSlider @bind-Value="_parallelConnections" 
+                       Min="1" 
+                       Max="10" 
+                       Step="1" 
+                       Color="Color.Primary">
+              Parallel Connections: @_parallelConnections
+            </MudSlider>
+            <MudTooltip Text="Number of simultaneous connections for faster downloads. Only works if server supports range requests.">
+              <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+            </MudTooltip>
+          </MudStack>
+
+          <MudStack Row>
+            <MudSlider @bind-Value="_bufferSizeKB" 
+                       Min="80" 
+                       Max="1024" 
+                       Step="80" 
+                       Color="Color.Secondary">
+              Buffer Size: @_bufferSizeKB KB
+            </MudSlider>
+            <MudTooltip Text="Larger buffer sizes can improve speed but use more memory.">
+              <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+            </MudTooltip>
+          </MudStack>
+
+          <MudStack Row>
+            <MudCheckBox @bind-Value="_useHttp2"
+                         Label="Use HTTP/2 Protocol"
+                         Color="Color.Tertiary" />
+            <MudTooltip Text="HTTP/2 can improve download speed with supported servers.">
+              <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+            </MudTooltip>
+          </MudStack>
+
+          <MudStack Row>
+            <MudCheckBox @bind-Value="_enableCompression"
+                         Label="Enable Compression"
+                         Color="Color.Info" />
+            <MudTooltip Text="Request compressed data from server if supported.">
+              <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+            </MudTooltip>
+          </MudStack>
+        </MudStack>
+      </MudExpansionPanel>
+    </MudExpansionPanels>
+
   </MudPaper>
 
   @if (!string.IsNullOrWhiteSpace(ErrorMessage))
@@ -171,6 +221,42 @@
                 <MudPaper Class="pa-5" Elevation="0" Outlined="true" Style="justify-content: start; width:100%;">
                   <MudStack>
                     <MudCheckBox @bind-Value="@context.bShouldGetFilenameFromHttpHeaders" Label="Use Headers For Filename" Color="Color.Primary" />
+
+                    <MudGrid>
+                      <MudItem xs="12" sm="6">
+                        <MudSlider @bind-Value="context.ParallelConnections" 
+                                   Min="1" 
+                                   Max="10" 
+                                   Step="1" 
+                                   Color="Color.Primary">
+                          Parallel Connections: @context.ParallelConnections
+                        </MudSlider>
+                      </MudItem>
+                      <MudItem xs="12" sm="6">
+                        <MudSlider @bind-Value="context.BufferSizeKB" 
+                                   Min="80" 
+                                   Max="1024" 
+                                   Step="80" 
+                                   Color="Color.Secondary">
+                          Buffer Size: @context.BufferSizeKB KB
+                        </MudSlider>
+                      </MudItem>
+                      <MudItem xs="12" sm="6">
+                        <MudCheckBox @bind-Value="context.UseHttp2"
+                                     Label="Use HTTP/2 Protocol"
+                                     Color="Color.Tertiary" />
+                      </MudItem>
+                      <MudItem xs="12" sm="6">
+                        <MudCheckBox @bind-Value="context.EnableCompression"
+                                     Label="Enable Compression"
+                                     Color="Color.Info" />
+                      </MudItem>
+                      <MudItem xs="12">
+                        <MudChip T="string" Icon="@Icons.Material.Filled.Info" Color="@(context.SupportsRangeRequests ? Color.Success : Color.Warning)">
+                          @(context.SupportsRangeRequests ? "Server supports parallel downloads" : "Server doesn't support parallel downloads")
+                        </MudChip>
+                      </MudItem>
+                    </MudGrid>
 
                     <!-- Speed Graph Card -->
                     <MudPaper Class="pa-4 mt-4" Elevation="1" Style="width: 100%;">
@@ -261,6 +347,12 @@
   private bool _useMaxDownloadSpeedLimit = false;
   private int _maxAutoStartConcurrency = 3;
   private int _maxBytesPerSecond = -1;
+  
+  // Advanced download settings
+  private int _parallelConnections = 1;
+  private int _bufferSizeKB = 80;
+  private bool _useHttp2 = true;
+  private bool _enableCompression = true;
 
   private readonly ChartOptions _chartOptions = new()
   {
@@ -493,7 +585,17 @@
         int mbs = _maxBytesPerSecond;
         if (!_useMaxDownloadSpeedLimit) mbs = -1;
         var validatedFolder = ValidateUserDownloadFolder(DownloadFolderName);
-        var newFileDownload = new FileDownloadQueueItem() { InputUrl = UrlText, CustomFileName = CustomFileName, MaxBytesPerSecond = mbs, DownloadFolder = validatedFolder };
+        var newFileDownload = new FileDownloadQueueItem() 
+        { 
+          InputUrl = UrlText, 
+          CustomFileName = CustomFileName, 
+          MaxBytesPerSecond = mbs, 
+          DownloadFolder = validatedFolder,
+          ParallelConnections = _parallelConnections,
+          BufferSizeKB = _bufferSizeKB,
+          UseHttp2 = _useHttp2,
+          EnableCompression = _enableCompression
+        };
         _context.FileDownloadQueueItems.Add(newFileDownload);
         await _context.SaveChangesAsync();
 
