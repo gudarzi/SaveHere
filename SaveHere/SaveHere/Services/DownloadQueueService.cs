@@ -316,11 +316,28 @@ namespace SaveHere.Services
           {
 
                         await using var context = await _contextFactory.CreateDbContextAsync();
-                        queueItem.ProgressPercentage = progress;
-                        queueItem.CurrentDownloadSpeed = currentSpeed;
-                        queueItem.AverageDownloadSpeed = averageSpeed;
-                        context.FileDownloadQueueItems.Update(queueItem);
-                        await context.SaveChangesAsync(cancellationToken);
+                        var dbQueueItem = await context.FileDownloadQueueItems.FindAsync(queueItem.Id, cancellationToken);
+                        if (dbQueueItem != null)
+                        {
+                            dbQueueItem.ProgressPercentage = progress;
+                            dbQueueItem.CurrentDownloadSpeed = currentSpeed;
+                            dbQueueItem.AverageDownloadSpeed = averageSpeed;
+                            
+                            try
+                            {
+                                await context.SaveChangesAsync(cancellationToken);
+                                
+                                // Update local instance
+                                queueItem.ProgressPercentage = progress;
+                                queueItem.CurrentDownloadSpeed = currentSpeed;
+                                queueItem.AverageDownloadSpeed = averageSpeed;
+                            }
+                            catch (DbUpdateConcurrencyException)
+                            {
+                                context.Entry(dbQueueItem).State = EntityState.Detached;
+                                // Don't log progress update conflicts as they're frequent and expected
+                            }
+                        }
 
 
                         var downloadProgress = new DownloadProgress()
@@ -401,10 +418,26 @@ namespace SaveHere.Services
 
                     await using (var context = await _contextFactory.CreateDbContextAsync())
                     {
-                        queueItem.ProgressPercentage = 100;
-                        queueItem.Status = EQueueItemStatus.Finished;
-                        context.FileDownloadQueueItems.Update(queueItem);
-                        await context.SaveChangesAsync();
+                        var dbQueueItem = await context.FileDownloadQueueItems.FindAsync(queueItem.Id);
+                        if (dbQueueItem != null)
+                        {
+                            dbQueueItem.ProgressPercentage = 100;
+                            dbQueueItem.Status = EQueueItemStatus.Finished;
+                            
+                            try
+                            {
+                                await context.SaveChangesAsync();
+                                
+                                // Update local instance
+                                queueItem.ProgressPercentage = 100;
+                                queueItem.Status = EQueueItemStatus.Finished;
+                            }
+                            catch (DbUpdateConcurrencyException)
+                            {
+                                context.Entry(dbQueueItem).State = EntityState.Detached;
+                                _logger.LogWarning("Concurrency conflict when updating queue item {ItemId} status", queueItem.Id);
+                            }
+                        }
 
                         var downloadProgress = new DownloadProgress()
                         {
@@ -555,10 +588,28 @@ namespace SaveHere.Services
 
       // Update status
       await using var context = await _contextFactory.CreateDbContextAsync();
-      queueItem.ProgressPercentage = 100;
-      queueItem.Status = EQueueItemStatus.Finished;
-      context.FileDownloadQueueItems.Update(queueItem);
-      await context.SaveChangesAsync();
+      var dbQueueItem = await context.FileDownloadQueueItems.FindAsync(queueItem.Id, cancellationToken);
+      if (dbQueueItem != null)
+      {
+        dbQueueItem.ProgressPercentage = 100;
+        dbQueueItem.Status = EQueueItemStatus.Finished;
+        
+        // Use optimistic concurrency handling
+        try
+        {
+          await context.SaveChangesAsync(cancellationToken);
+          
+          // Update the local instance for consistency
+          queueItem.ProgressPercentage = 100;
+          queueItem.Status = EQueueItemStatus.Finished;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+          // Handle concurrency conflicts gracefully
+          context.Entry(dbQueueItem).State = EntityState.Detached;
+          _logger.LogWarning("Concurrency conflict when updating queue item {ItemId} status", queueItem.Id);
+        }
+      }
 
       var downloadProgress = new DownloadProgress()
       {

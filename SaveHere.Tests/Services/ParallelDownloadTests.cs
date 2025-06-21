@@ -81,7 +81,7 @@ namespace SaveHere.Tests.Services
                     }
                 });
 
-            // Setup GET requests for chunks
+            // Setup GET requests for chunks (with range headers)
             httpMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
@@ -105,6 +105,24 @@ namespace SaveHere.Tests.Services
                         StatusCode = HttpStatusCode.PartialContent,
                         Content = new ByteArrayContent(chunkData)
                     });
+                });
+
+            // Setup GET requests without range headers (fallback downloads)
+            httpMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => 
+                        req.Method == HttpMethod.Get && 
+                        req.Headers.Range == null),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new ByteArrayContent(testData)
+                    {
+                        Headers = { ContentLength = fileSize }
+                    }
                 });
 
             var httpClient = new HttpClient(httpMessageHandler.Object);
@@ -210,7 +228,7 @@ namespace SaveHere.Tests.Services
                     // No AcceptRanges header
                 });
 
-            // Setup regular GET request
+            // Setup regular GET request (without range)
             httpMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
@@ -223,6 +241,27 @@ namespace SaveHere.Tests.Services
                 {
                     StatusCode = HttpStatusCode.OK,
                     Content = new ByteArrayContent(testData)
+                    {
+                        Headers = { ContentLength = testData.Length }
+                    }
+                });
+
+            // Setup GET request with range (should return full content since range not supported)
+            httpMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => 
+                        req.Method == HttpMethod.Get && 
+                        req.Headers.Range != null),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK, // Not PartialContent, indicating range not supported
+                    Content = new ByteArrayContent(testData)
+                    {
+                        Headers = { ContentLength = testData.Length }
+                    }
                 });
 
             var httpClient = new HttpClient(httpMessageHandler.Object);
@@ -245,11 +284,37 @@ namespace SaveHere.Tests.Services
             await service.DownloadFile(queueItem, CancellationToken.None);
 
             // Assert
-            // Verify no range requests were made
+            // The key test is that the download should succeed and fallback to sequential
+            // We don't need to verify exact HTTP call counts since the important behavior
+            // is that it doesn't use parallel downloads when ranges aren't supported
+            
+            // Verify that the range support check was made (HEAD request with range)
+            httpMessageHandler.Protected().Verify(
+                "SendAsync",
+                Times.Once(),
+                ItExpr.Is<HttpRequestMessage>(req => 
+                    req.Method == HttpMethod.Head && 
+                    req.Headers.Range != null),
+                ItExpr.IsAny<CancellationToken>()
+            );
+            
+            // Verify no GET requests with range headers were made (no parallel download chunks)
             httpMessageHandler.Protected().Verify(
                 "SendAsync",
                 Times.Never(),
-                ItExpr.Is<HttpRequestMessage>(req => req.Headers.Range != null),
+                ItExpr.Is<HttpRequestMessage>(req => 
+                    req.Method == HttpMethod.Get && 
+                    req.Headers.Range != null),
+                ItExpr.IsAny<CancellationToken>()
+            );
+            
+            // Verify that at least one regular GET request was made (sequential download)
+            httpMessageHandler.Protected().Verify(
+                "SendAsync",
+                Times.AtLeastOnce(),
+                ItExpr.Is<HttpRequestMessage>(req => 
+                    req.Method == HttpMethod.Get && 
+                    req.Headers.Range == null),
                 ItExpr.IsAny<CancellationToken>()
             );
         }
@@ -360,6 +425,24 @@ namespace SaveHere.Tests.Services
                     });
                 });
 
+            // Setup GET requests without range headers
+            handler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => 
+                        req.Method == HttpMethod.Get && 
+                        req.Headers.Range == null),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new ByteArrayContent(data)
+                    {
+                        Headers = { ContentLength = data.Length }
+                    }
+                });
+
             return handler;
         }
 
@@ -394,17 +477,44 @@ namespace SaveHere.Tests.Services
         {
             // Override the download path for testing
             var originalPath = Directory.GetCurrentDirectory();
-            Directory.SetCurrentDirectory(Path.GetDirectoryName(_testDownloadPath));
             
             try
             {
-                var downloadsDir = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
-                if (!Directory.Exists(downloadsDir))
+                // Set current directory to parent of test path
+                var testParentDir = Path.GetDirectoryName(_testDownloadPath)!;
+                Directory.SetCurrentDirectory(testParentDir);
+                
+                // Create the test downloads directory
+                if (!Directory.Exists(_testDownloadPath))
                 {
-                    Directory.CreateDirectory(downloadsDir);
+                    Directory.CreateDirectory(_testDownloadPath);
+                }
+                
+                // Create downloads directory in current directory that maps to our test path
+                var downloadsDir = Path.Combine(Directory.GetCurrentDirectory(), "downloads");
+                if (Directory.Exists(downloadsDir))
+                {
+                    Directory.Delete(downloadsDir, true);
+                }
+                
+                // Rename our test directory to "downloads" temporarily
+                var testDirName = Path.GetFileName(_testDownloadPath);
+                var tempDownloadsName = Path.Combine(testParentDir, "downloads");
+                
+                if (testDirName != "downloads")
+                {
+                    Directory.Move(_testDownloadPath, tempDownloadsName);
                 }
                 
                 await base.DownloadFileParallel(queueItem, cancellationToken);
+                
+                // Move it back if we renamed it
+                if (testDirName != "downloads" && Directory.Exists(tempDownloadsName))
+                {
+                    if (Directory.Exists(_testDownloadPath))
+                        Directory.Delete(_testDownloadPath, true);
+                    Directory.Move(tempDownloadsName, _testDownloadPath);
+                }
             }
             finally
             {
