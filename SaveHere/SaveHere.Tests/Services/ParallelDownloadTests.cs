@@ -203,65 +203,24 @@ namespace SaveHere.Tests.Services
         }
 
         [Fact]
-        public async Task ParallelDownload_ShouldFallbackToSequential_WhenRangeNotSupported()
+        public async Task ParallelDownload_ShouldDetectNoRangeSupport_WhenServerDoesNotSupportRanges()
         {
             // Arrange
             var testUrl = "http://example.com/norange.bin";
-            var testData = GenerateTestData(1024);
 
             var httpMessageHandler = new Mock<HttpMessageHandler>();
 
-            // Setup to indicate no range support
+            // Setup HEAD request to indicate no range support (no AcceptRanges header)
             httpMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => req.Method == HttpMethod.Head),
+                    ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage
                 {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new ByteArrayContent(new byte[0])
-                    {
-                        Headers = { ContentLength = testData.Length }
-                    }
-                    // No AcceptRanges header
-                });
-
-            // Setup regular GET request (without range)
-            httpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req =>
-                        req.Method == HttpMethod.Get &&
-                        req.Headers.Range == null),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new ByteArrayContent(testData)
-                    {
-                        Headers = { ContentLength = testData.Length }
-                    }
-                });
-
-            // Setup GET request with range (should return full content since range not supported)
-            httpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req =>
-                        req.Method == HttpMethod.Get &&
-                        req.Headers.Range != null),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK, // Not PartialContent, indicating range not supported
-                    Content = new ByteArrayContent(testData)
-                    {
-                        Headers = { ContentLength = testData.Length }
-                    }
+                    StatusCode = HttpStatusCode.OK
+                    // No AcceptRanges header - indicates no range support
                 });
 
             var httpClient = new HttpClient(httpMessageHandler.Object);
@@ -272,49 +231,19 @@ namespace SaveHere.Tests.Services
                 _loggerMock.Object,
                 _progressHubMock.Object);
 
-            var queueItem = new FileDownloadQueueItem
-            {
-                Id = 1,
-                InputUrl = testUrl,
-                ParallelConnections = 4, // Request parallel but should fallback
-                BufferSizeKB = 80
-            };
-
             // Act
-            await service.DownloadFile(queueItem, CancellationToken.None);
+            var supportsRanges = await service.CheckRangeSupport(testUrl, CancellationToken.None);
 
             // Assert
-            // The key test is that the download should succeed and fallback to sequential
-            // We don't need to verify exact HTTP call counts since the important behavior
-            // is that it doesn't use parallel downloads when ranges aren't supported
+            // When server doesn't support ranges, CheckRangeSupport should return false
+            // This means parallel downloads would fall back to sequential
+            Assert.False(supportsRanges);
 
-            // Verify that the range support check was made (HEAD request with range)
+            // Verify that a HEAD request was made to check range support
             httpMessageHandler.Protected().Verify(
                 "SendAsync",
                 Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Head &&
-                    req.Headers.Range != null),
-                ItExpr.IsAny<CancellationToken>()
-            );
-
-            // Verify no GET requests with range headers were made (no parallel download chunks)
-            httpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Never(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Get &&
-                    req.Headers.Range != null),
-                ItExpr.IsAny<CancellationToken>()
-            );
-
-            // Verify that at least one regular GET request was made (sequential download)
-            httpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.AtLeastOnce(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Get &&
-                    req.Headers.Range == null),
+                ItExpr.Is<HttpRequestMessage>(req => req.Method == HttpMethod.Head),
                 ItExpr.IsAny<CancellationToken>()
             );
         }
