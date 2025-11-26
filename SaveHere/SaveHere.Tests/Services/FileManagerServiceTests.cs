@@ -10,16 +10,24 @@ namespace SaveHere.Tests.Services
     {
         private readonly string _testDirectory;
         private readonly IFileManagerService _fileManagerService;
+        private readonly string _originalDownloadsPath;
 
         public FileManagerServiceTests()
         {
             _testDirectory = Path.Combine(Path.GetTempPath(), "FileManagerServiceTests_" + Guid.NewGuid().ToString());
             Directory.CreateDirectory(_testDirectory);
             _fileManagerService = new FileManagerService();
+
+            // Store original downloads path and set test directory as downloads path
+            _originalDownloadsPath = DirectoryBrowser.DownloadsPath;
+            DirectoryBrowser.SetDownloadsPathForTesting(_testDirectory);
         }
 
         public void Dispose()
         {
+            // Restore original downloads path
+            DirectoryBrowser.SetDownloadsPathForTesting(_originalDownloadsPath);
+
             if (Directory.Exists(_testDirectory))
             {
                 Directory.Delete(_testDirectory, true);
@@ -126,7 +134,10 @@ namespace SaveHere.Tests.Services
         [Fact]
         public void RenameItem_WithValidFile_ReturnsTrue()
         {
-            File.Delete(Path.Combine(_testDirectory, "newname.txt"));
+            // Clean up any existing file from previous test runs
+            var newFilePath = Path.Combine(_testDirectory, "newname.txt");
+            if (File.Exists(newFilePath))
+                File.Delete(newFilePath);
 
             // Arrange
             var testFile = Path.Combine(_testDirectory, "oldname.txt");
@@ -144,9 +155,7 @@ namespace SaveHere.Tests.Services
             // Assert
             Assert.True(result);
             Assert.False(File.Exists(testFile));
-            Assert.True(File.Exists(Path.Combine(".", "newname.txt")));
-            //clean up created file
-
+            Assert.True(File.Exists(newFilePath));
         }
 
         [Fact]
@@ -162,8 +171,8 @@ namespace SaveHere.Tests.Services
                 Type = "file"
             };
 
-            // Act
-            var result = _fileManagerService.RenameItem(fileItem, "invalid<>name.txt");
+            // Act - Use null character which is invalid on all platforms
+            var result = _fileManagerService.RenameItem(fileItem, "invalid\0name.txt");
 
             // Assert
             Assert.False(result);

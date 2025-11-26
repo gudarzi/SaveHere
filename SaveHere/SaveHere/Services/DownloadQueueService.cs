@@ -57,9 +57,15 @@ namespace SaveHere.Services
         throw new ArgumentException("URL cannot be empty", nameof(url));
       }
 
-      if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+      if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
       {
         throw new ArgumentException("URL is not valid", nameof(url));
+      }
+
+      // Only allow HTTP and HTTPS schemes for direct downloads
+      if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+      {
+        throw new ArgumentException("URL must use HTTP or HTTPS scheme", nameof(url));
       }
 
       var item = new FileDownloadQueueItem
