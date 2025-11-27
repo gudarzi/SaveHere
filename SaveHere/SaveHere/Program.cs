@@ -12,6 +12,7 @@ using SaveHere.Hubs;
 using SaveHere.Models;
 using SaveHere.Models.db;
 using SaveHere.Services;
+using System.Net;
 
 namespace SaveHere
 {
@@ -112,6 +113,23 @@ namespace SaveHere
       builder.Services.AddSingleton<IProgressHubService, ProgressHubService>();
 
       builder.Services.AddSingleton<DownloadStateService>();
+
+      builder.Services.AddHttpClient<IDownloadQueueService, DownloadQueueService>(client =>
+          {
+              // Enable HTTP/2
+              client.DefaultRequestVersion = new Version(2, 0);
+              client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+          })
+          .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+          {
+              // Allow automatic decompression
+              AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate | System.Net.DecompressionMethods.Brotli,
+              // Connection pooling settings - read from configuration
+              MaxConnectionsPerServer = builder.Configuration.GetValue<int>("DownloadSettings:MaxConnectionsPerServer", 10),
+              // Enable cookies if needed
+              UseCookies = true
+          })
+          .SetHandlerLifetime(TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("DownloadSettings:ConnectionPoolLifetimeMinutes", 5))); // Connection pool lifetime
 
       builder.Services.AddHttpClient();
 
