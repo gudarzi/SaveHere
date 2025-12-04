@@ -85,7 +85,7 @@ jobs:
       
     - name: Run tests with coverage
       run: |
-        dotnet test SaveHere.Tests/SaveHere.Tests.csproj \
+        dotnet test SaveHere/SaveHere.Tests/SaveHere.Tests.csproj \
           --no-build \
           --configuration Release \
           --collect:"XPlat Code Coverage" \

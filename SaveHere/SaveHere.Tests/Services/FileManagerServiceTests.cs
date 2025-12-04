@@ -138,13 +138,15 @@ namespace SaveHere.Tests.Services
                 Type = "file"
             };
 
+            typeof(DirectoryBrowser).GetField("_downloadsPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).SetValue(null, _testDirectory);
+
             // Act
             var result = _fileManagerService.RenameItem(fileItem, "newname.txt");
 
             // Assert
             Assert.True(result);
             Assert.False(File.Exists(testFile));
-            Assert.True(File.Exists(Path.Combine(".", "newname.txt")));
+            Assert.True(File.Exists(Path.Combine(_testDirectory, "newname.txt")));
             //clean up created file
 
         }
@@ -178,7 +180,7 @@ namespace SaveHere.Tests.Services
             var testFile2 = Path.Combine(_testDirectory, "file2.txt");
             File.WriteAllText(testFile1, "content1");
             File.WriteAllText(testFile2, "content2");
-            
+
             var fileItem = new FileItem
             {
                 Name = "file1.txt",
