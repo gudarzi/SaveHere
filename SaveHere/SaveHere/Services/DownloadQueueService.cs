@@ -57,7 +57,8 @@ namespace SaveHere.Services
         throw new ArgumentException("URL cannot be empty", nameof(url));
       }
 
-      if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+      if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) )
       {
         throw new ArgumentException("URL is not valid", nameof(url));
       }

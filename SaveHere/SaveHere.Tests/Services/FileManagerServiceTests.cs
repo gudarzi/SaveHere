@@ -10,24 +10,16 @@ namespace SaveHere.Tests.Services
     {
         private readonly string _testDirectory;
         private readonly IFileManagerService _fileManagerService;
-        private readonly string _originalDownloadsPath;
 
         public FileManagerServiceTests()
         {
             _testDirectory = Path.Combine(Path.GetTempPath(), "FileManagerServiceTests_" + Guid.NewGuid().ToString());
             Directory.CreateDirectory(_testDirectory);
             _fileManagerService = new FileManagerService();
-
-            // Store original downloads path and set test directory as downloads path
-            _originalDownloadsPath = DirectoryBrowser.DownloadsPath;
-            DirectoryBrowser.SetDownloadsPathForTesting(_testDirectory);
         }
 
         public void Dispose()
         {
-            // Restore original downloads path
-            DirectoryBrowser.SetDownloadsPathForTesting(_originalDownloadsPath);
-
             if (Directory.Exists(_testDirectory))
             {
                 Directory.Delete(_testDirectory, true);
@@ -134,10 +126,7 @@ namespace SaveHere.Tests.Services
         [Fact]
         public void RenameItem_WithValidFile_ReturnsTrue()
         {
-            // Clean up any existing file from previous test runs
-            var newFilePath = Path.Combine(_testDirectory, "newname.txt");
-            if (File.Exists(newFilePath))
-                File.Delete(newFilePath);
+            File.Delete(Path.Combine(_testDirectory, "newname.txt"));
 
             // Arrange
             var testFile = Path.Combine(_testDirectory, "oldname.txt");
@@ -149,13 +138,17 @@ namespace SaveHere.Tests.Services
                 Type = "file"
             };
 
+            typeof(DirectoryBrowser).GetField("_downloadsPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).SetValue(null, _testDirectory);
+
             // Act
             var result = _fileManagerService.RenameItem(fileItem, "newname.txt");
 
             // Assert
             Assert.True(result);
             Assert.False(File.Exists(testFile));
-            Assert.True(File.Exists(newFilePath));
+            Assert.True(File.Exists(Path.Combine(_testDirectory, "newname.txt")));
+            //clean up created file
+
         }
 
         [Fact]
@@ -171,8 +164,8 @@ namespace SaveHere.Tests.Services
                 Type = "file"
             };
 
-            // Act - Use null character which is invalid on all platforms
-            var result = _fileManagerService.RenameItem(fileItem, "invalid\0name.txt");
+            // Act
+            var result = _fileManagerService.RenameItem(fileItem, "invalid<>name.txt");
 
             // Assert
             Assert.False(result);
@@ -187,7 +180,7 @@ namespace SaveHere.Tests.Services
             var testFile2 = Path.Combine(_testDirectory, "file2.txt");
             File.WriteAllText(testFile1, "content1");
             File.WriteAllText(testFile2, "content2");
-            
+
             var fileItem = new FileItem
             {
                 Name = "file1.txt",
