@@ -63,6 +63,12 @@ namespace SaveHere.Services
         throw new ArgumentException("URL is not valid", nameof(url));
       }
 
+      // Only allow HTTP and HTTPS schemes for direct downloads
+      if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+      {
+        throw new ArgumentException("URL must use HTTP or HTTPS scheme", nameof(url));
+      }
+
       var item = new FileDownloadQueueItem
       {
         InputUrl = url,

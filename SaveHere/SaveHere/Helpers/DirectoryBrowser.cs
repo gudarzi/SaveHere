@@ -32,6 +32,14 @@
       }
     }
 
+    /// <summary>
+    /// Sets the downloads path for testing purposes only.
+    /// </summary>
+    public static void SetDownloadsPathForTesting(string path)
+    {
+      _downloadsPath = path;
+    }
+
     public static List<FileSystemItem> GetDownloadsContent()
     {
       try
