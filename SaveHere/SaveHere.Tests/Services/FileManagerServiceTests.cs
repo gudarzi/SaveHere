@@ -164,8 +164,9 @@ namespace SaveHere.Tests.Services
                 Type = "file"
             };
 
-            // Act
-            var result = _fileManagerService.RenameItem(fileItem, "invalid<>name.txt");
+            // Act - Use a filename with path separator which is invalid on all platforms
+            // (forward slash is a path separator on Linux/macOS, not allowed in filenames)
+            var result = _fileManagerService.RenameItem(fileItem, "invalid/name.txt");
 
             // Assert
             Assert.False(result);
