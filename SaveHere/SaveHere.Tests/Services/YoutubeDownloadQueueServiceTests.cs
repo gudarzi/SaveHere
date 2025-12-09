@@ -211,17 +211,32 @@ namespace SaveHere.Tests.Services
                 await setupContext.SaveChangesAsync();
             }
 
-            // Act - Append a single log line (should not trigger immediate DB write due to batching)
-            await _service.AppendLogAsync(1, "Test log line 1");
+            // First append triggers an immediate flush (since lastFlush starts at MinValue)
+            // This is expected behavior to ensure logs are persisted promptly on first write
+            await _service.AppendLogAsync(1, "First log line");
 
-            // Assert - The log should be queued but not immediately persisted
-            // (The first append within the flush interval doesn't trigger a flush)
+            // Wait a moment for the fire-and-forget flush to complete
+            await Task.Delay(100);
+
+            // Verify the first log was flushed
+            await using (var checkContext = new AppDbContext(_options))
+            {
+                var itemAfterFirst = await checkContext.YoutubeDownloadQueueItems.FindAsync(1);
+                itemAfterFirst.Should().NotBeNull();
+                itemAfterFirst!.PersistedLog.Should().Contain("First log line");
+            }
+
+            // Act - Now subsequent appends within the 5-second interval should be batched
+            await _service.AppendLogAsync(1, "Second log line");
+
+            // Assert - The second log should be queued but not immediately persisted
+            // (we're within the flush interval)
             await using var verifyContext = new AppDbContext(_options);
             var itemInDb = await verifyContext.YoutubeDownloadQueueItems.FindAsync(1);
 
-            // The log might not be persisted yet due to batching (5 second interval)
-            // This verifies the batching mechanism is working
             itemInDb.Should().NotBeNull();
+            // The second log should NOT be in the persisted log yet (batched in memory)
+            itemInDb!.PersistedLog.Should().NotContain("Second log line");
         }
 
         [Fact]

@@ -31,6 +31,7 @@ namespace SaveHere.Services
     // Log batching: accumulate logs in memory and flush periodically
     private readonly ConcurrentDictionary<int, ConcurrentQueue<string>> _pendingLogs = new();
     private readonly ConcurrentDictionary<int, DateTime> _lastFlushTime = new();
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _flushLocks = new();
     private readonly TimeSpan _logFlushInterval = TimeSpan.FromSeconds(5);
 
     public YoutubeDownloadQueueService(
@@ -236,6 +237,14 @@ namespace SaveHere.Services
 
     public async Task FlushLogsAsync(int itemId)
     {
+      var flushLock = _flushLocks.GetOrAdd(itemId, _ => new SemaphoreSlim(1, 1));
+
+      // If a flush is already in progress for this item, skip this call
+      if (!await flushLock.WaitAsync(0))
+      {
+        return;
+      }
+
       try
       {
         if (!_pendingLogs.TryGetValue(itemId, out var queue) || queue.IsEmpty)
@@ -271,9 +280,15 @@ namespace SaveHere.Services
           {
             await context.SaveChangesAsync();
           }
-          catch (DbUpdateConcurrencyException)
+          catch (DbUpdateConcurrencyException ex)
           {
-            // Ignore concurrency conflicts for logs
+            _logger.LogWarning(ex, "Concurrency conflict during log flush for item {itemId}. Re-queuing {LogCount} logs to prevent data loss.", itemId, logsToFlush.Count);
+            // Re-queue the logs that failed to persist
+            foreach (var log in logsToFlush)
+            {
+              queue.Enqueue(log);
+            }
+            // Detach the entity to resolve the conflict for this context instance
             context.Entry(item).State = EntityState.Detached;
           }
         }
@@ -282,12 +297,20 @@ namespace SaveHere.Services
       {
         _logger.LogError(ex, "Error flushing logs to database for item {itemId}: {Message}", itemId, ex.Message);
       }
+      finally
+      {
+        flushLock.Release();
+      }
     }
 
     private void CleanupLogsForItem(int itemId)
     {
       _pendingLogs.TryRemove(itemId, out _);
       _lastFlushTime.TryRemove(itemId, out _);
+      if (_flushLocks.TryRemove(itemId, out var semaphore))
+      {
+        semaphore.Dispose();
+      }
     }
 
   }
