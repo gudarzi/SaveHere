@@ -366,6 +366,12 @@
 
   private List<ChartSeries> _speedSeries = new();
 
+  // Throttling for UI updates to prevent UI freezing
+  private DateTime _lastUiUpdateTime = DateTime.MinValue;
+  private readonly TimeSpan _uiUpdateInterval = TimeSpan.FromMilliseconds(500);
+  private DateTime _lastFileManagerRefreshTime = DateTime.MinValue;
+  private readonly TimeSpan _fileManagerRefreshInterval = TimeSpan.FromSeconds(2);
+
   protected override async Task OnInitializedAsync()
   {
     var authState = await AuthProvider.GetAuthenticationStateAsync();
@@ -468,6 +474,7 @@
     var item = _fileDownloadQueueItems.FirstOrDefault(x => x.Id == update.ItemId);
     if (item != null)
     {
+      // Always update the data
       item.ProgressPercentage = update.ProgressPercentage;
       item.CurrentDownloadSpeed = update.CurrentSpeed;
       item.AverageDownloadSpeed = update.AverageSpeed;
@@ -479,10 +486,21 @@
         item.SpeedHistory.RemoveAt(0);
       }
 
-      UpdateSpeedChart(item);
+      // Throttle UI updates to prevent freezing
+      var now = DateTime.UtcNow;
+      if (now - _lastUiUpdateTime >= _uiUpdateInterval)
+      {
+        _lastUiUpdateTime = now;
+        UpdateSpeedChart(item);
+        await InvokeAsync(StateHasChanged);
+      }
 
-      await RefreshFileManager();
-      await InvokeAsync(StateHasChanged);
+      // Throttle file manager refresh even more (expensive operation)
+      if (now - _lastFileManagerRefreshTime >= _fileManagerRefreshInterval)
+      {
+        _lastFileManagerRefreshTime = now;
+        await RefreshFileManager();
+      }
     }
     else
     {
@@ -496,15 +514,15 @@
     var item = _fileDownloadQueueItems.FirstOrDefault(x => x.Id == itemId);
     if (item != null)
     {
-      await InvokeAsync(() =>
+      item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
+
+      // Refresh file manager when download completes or fails (not during active downloading)
+      if (newStatus != EQueueItemStatus.Downloading.ToString())
       {
-        item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
-        if (newStatus != EQueueItemStatus.Downloading.ToString())
-        {
-          InvokeAsync(RefreshFileManager);
-        }
-        StateHasChanged();
-      });
+        await RefreshFileManager();
+      }
+
+      await InvokeAsync(StateHasChanged);
     }
     else
     {
@@ -555,7 +573,6 @@
   {
     if (!string.IsNullOrWhiteSpace(UrlText))
     {
-      var output = DownloadQueueService.GetFileInfo(UrlText);
       var parameters = new DialogParameters
             {
                 { "Url", UrlText },
@@ -568,6 +585,7 @@
         CloseButton = true
       };
 
+      // Show dialog immediately - the dialog will fetch file info asynchronously
       DialogService.Show<FileInfoDialog>("File Info", parameters, options);
     }
     else

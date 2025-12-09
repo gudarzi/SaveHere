@@ -3,6 +3,7 @@ using SaveHere.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace SaveHere.Services
 {
@@ -276,20 +277,31 @@ namespace SaveHere.Services
 
       using var process = new Process { StartInfo = startInfo };
 
-      process.OutputDataReceived += async (sender, e) =>
+      // Use a channel to properly handle async log processing
+      var logChannel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+      {
+        SingleReader = true,
+        SingleWriter = false
+      });
+
+      // Track pending log broadcasts
+      var logProcessingTask = ProcessLogChannelAsync(logChannel.Reader, itemId, cancellationToken);
+
+      process.OutputDataReceived += (sender, e) =>
       {
         if (!string.IsNullOrEmpty(e.Data))
         {
-          await _progressHubService.BroadcastLogUpdate(itemId, e.Data);
+          // Write to channel synchronously (non-blocking)
+          logChannel.Writer.TryWrite(e.Data);
         }
       };
 
-      process.ErrorDataReceived += async (sender, e) =>
+      process.ErrorDataReceived += (sender, e) =>
       {
         if (!string.IsNullOrEmpty(e.Data))
         {
           string errorLog = $"Error: {e.Data}";
-          await _progressHubService.BroadcastLogUpdate(itemId, errorLog);
+          logChannel.Writer.TryWrite(errorLog);
           _logger.LogWarning("yt-dlp error: {Error}", e.Data);
         }
       };
@@ -301,6 +313,12 @@ namespace SaveHere.Services
       try
       {
         await process.WaitForExitAsync(cancellationToken);
+
+        // Signal that no more logs are coming
+        logChannel.Writer.Complete();
+
+        // Wait for all logs to be processed before continuing
+        await logProcessingTask;
 
         if (process.ExitCode != 0)
         {
@@ -314,6 +332,7 @@ namespace SaveHere.Services
       }
       catch (OperationCanceledException)
       {
+        logChannel.Writer.TryComplete();
         await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Cancelled.ToString());
         await _progressHubService.BroadcastLogUpdate(itemId, "Download was cancelled.");
         if (!process.HasExited)
@@ -324,10 +343,37 @@ namespace SaveHere.Services
       }
       catch (Exception ex)
       {
+        logChannel.Writer.TryComplete();
         string exceptionError = $"Download failed: {ex.Message}";
         await _progressHubService.BroadcastStateChange(itemId, EQueueItemStatus.Paused.ToString());
         await _progressHubService.BroadcastLogUpdate(itemId, exceptionError);
         throw;
+      }
+    }
+
+    private async Task ProcessLogChannelAsync(ChannelReader<string> reader, int itemId, CancellationToken cancellationToken)
+    {
+      try
+      {
+        await foreach (var logLine in reader.ReadAllAsync(cancellationToken))
+        {
+          try
+          {
+            await _progressHubService.BroadcastLogUpdate(itemId, logLine);
+          }
+          catch (Exception ex)
+          {
+            _logger.LogWarning(ex, "Failed to broadcast log update for item {ItemId}", itemId);
+          }
+        }
+      }
+      catch (OperationCanceledException)
+      {
+        // Expected when download is cancelled
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError(ex, "Error processing log channel for item {ItemId}", itemId);
       }
     }
 

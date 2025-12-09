@@ -254,7 +254,9 @@
   private bool _isLoadingTheList = false;
 
   private DateTime _lastUiUpdateTime = DateTime.MinValue;
-  private TimeSpan _uiUpdateInterval = TimeSpan.FromSeconds(1);
+  private readonly TimeSpan _uiUpdateInterval = TimeSpan.FromMilliseconds(500);
+  private DateTime _lastFileManagerRefreshTime = DateTime.MinValue;
+  private readonly TimeSpan _fileManagerRefreshInterval = TimeSpan.FromSeconds(2);
 
   private bool _autoStartPausedDownloads = true;
   private int _maxAutoStartConcurrency = 3;
@@ -357,19 +359,22 @@
     var item = _youtubeDownloadQueueItems.FirstOrDefault(x => x.Id == itemId);
     if (item != null)
     {
-      await InvokeAsync(() =>
+      item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
+
+      // Always update UI on state change, refresh file manager on completion/cancel
+      if (newStatus != EQueueItemStatus.Downloading.ToString())
       {
-        item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
-        if (newStatus != EQueueItemStatus.Downloading.ToString())
-        {
-          ThrottleUIUpdate(true);
-        }
-      });
+        await ThrottleUIUpdateAsync(true);
+      }
+      else
+      {
+        await InvokeAsync(StateHasChanged);
+      }
     }
     else
     {
       await LoadDownloadItemsList();
-      ThrottleUIUpdate(true);
+      await ThrottleUIUpdateAsync(true);
     }
   }
 
@@ -378,17 +383,16 @@
     var item = _youtubeDownloadQueueItems.FirstOrDefault(x => x.Id == itemId);
     if (item != null)
     {
-      await InvokeAsync(() =>
-      {
-        item.OutputLog.Add(logLine);
-        ThrottleUIUpdate();
-      });
+      item.OutputLog.Add(logLine);
+      await ThrottleUIUpdateAsync();
+
+      // Queue log for batch append instead of immediate DB write
       await YoutubeDownloadQueueService.AppendLogAsync(itemId, logLine);
     }
     else
     {
       await LoadDownloadItemsList();
-      ThrottleUIUpdate(true);
+      await ThrottleUIUpdateAsync(true);
     }
   }
 
@@ -425,7 +429,7 @@
       YoutubeUrl = "";
       ErrorMessage = "";
       await LoadDownloadItemsList();
-      ThrottleUIUpdate();
+      await ThrottleUIUpdateAsync();
     }
     catch (Exception exception)
     {
@@ -472,7 +476,7 @@
     {
       await YoutubeDownloadQueueService.DeleteQueueItemAsync(item.Id);
       await LoadDownloadItemsList();
-      ThrottleUIUpdate(true);
+      await ThrottleUIUpdateAsync(true);
     }
     catch (Exception exception)
     {
@@ -503,14 +507,20 @@
     }
   }
 
-  private void ThrottleUIUpdate(bool forceUpdate = false)
+  private async Task ThrottleUIUpdateAsync(bool forceUpdate = false)
   {
-    var now = DateTime.Now;
+    var now = DateTime.UtcNow;
     if (forceUpdate || (now - _lastUiUpdateTime >= _uiUpdateInterval))
     {
       _lastUiUpdateTime = now;
-      InvokeAsync(StateHasChanged);
-      InvokeAsync(RefreshFileManager);
+      await InvokeAsync(StateHasChanged);
+    }
+
+    // File manager refresh is more expensive, throttle separately
+    if (forceUpdate || (now - _lastFileManagerRefreshTime >= _fileManagerRefreshInterval))
+    {
+      _lastFileManagerRefreshTime = now;
+      await RefreshFileManager();
     }
   }
 
