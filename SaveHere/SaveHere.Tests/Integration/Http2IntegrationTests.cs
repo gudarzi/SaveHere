@@ -46,22 +46,14 @@ namespace SaveHere.Tests.Integration
         }
 
         [Fact]
-        public async Task HttpClient_ShouldSupportCompression()
+        public void HttpClient_ShouldSupportCompression()
         {
-            // Arrange
-            using var scope = _factory.Services.CreateScope();
-            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-            var httpClient = httpClientFactory.CreateClient();
-
-            // Create a test server that supports compression
+            // Arrange - Create a test handler that simulates compression support
             var testHandler = new TestHttpMessageHandler();
-            var testClient = new HttpClient(testHandler);
+            using var testClient = new HttpClient(testHandler);
 
             // Act & Assert
-            // The configured client should accept compressed responses
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://test.com");
-
-            // Check if Accept-Encoding headers would be set (this is handled by the handler)
+            // The test handler is configured to support compression
             // In a real scenario, the AutomaticDecompression property handles this
             Assert.True(testHandler.SupportsCompression);
         }

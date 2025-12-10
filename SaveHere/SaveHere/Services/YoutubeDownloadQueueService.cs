@@ -2,6 +2,7 @@
 using SaveHere.Models;
 using SaveHere.Models.db;
 using SaveHere.Models.SaveHere.Models;
+using System.Collections.Concurrent;
 
 namespace SaveHere.Services
 {
@@ -16,6 +17,7 @@ namespace SaveHere.Services
     Task StartDownloadAsync(YoutubeDownloadQueueItem item);
     Task CancelDownloadAsync(int id);
     Task AppendLogAsync(int itemId, string logLine);
+    Task FlushLogsAsync(int itemId);
   }
 
   public class YoutubeDownloadQueueService : IYoutubeDownloadQueueService
@@ -25,6 +27,12 @@ namespace SaveHere.Services
     private readonly ILogger<YoutubeDownloadQueueService> _logger;
     private readonly IProgressHubService _progressHubService;
     private readonly IYtdlpService _ytdlpService;
+
+    // Log batching: accumulate logs in memory and flush periodically
+    private readonly ConcurrentDictionary<int, ConcurrentQueue<string>> _pendingLogs = new();
+    private readonly ConcurrentDictionary<int, DateTime> _lastFlushTime = new();
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _flushLocks = new();
+    private readonly TimeSpan _logFlushInterval = TimeSpan.FromSeconds(5);
 
     public YoutubeDownloadQueueService(
         IDbContextFactory<AppDbContext> contextFactory,
@@ -162,6 +170,7 @@ namespace SaveHere.Services
       try
       {
         // Clear previous logs when starting a new download
+        CleanupLogsForItem(item.Id);
         item.OutputLog.Clear();
         item.PersistedLog = string.Empty;
         item.Status = EQueueItemStatus.Downloading;
@@ -170,6 +179,9 @@ namespace SaveHere.Services
 
         await _ytdlpService.DownloadVideo(item.Id, item.Url, item.CustomFileName, item.Quality, item.Proxy, item.DownloadFolder,
          item.SubtitleLanguage, token);
+
+        // Flush any remaining logs before marking as finished
+        await FlushLogsAsync(item.Id);
 
         // Ensure we capture all logs before setting status to finished
         var currentLogs = item.OutputLog.ToList();
@@ -180,6 +192,7 @@ namespace SaveHere.Services
       }
       catch (OperationCanceledException)
       {
+        await FlushLogsAsync(item.Id);
         item.Status = EQueueItemStatus.Cancelled;
         item.PersistedLog = string.Join(Environment.NewLine, item.OutputLog);
         await UpdateItemStateAsync(item.Id, EQueueItemStatus.Cancelled);
@@ -188,6 +201,7 @@ namespace SaveHere.Services
       }
       catch (Exception ex)
       {
+        await FlushLogsAsync(item.Id);
         _logger.LogError(ex, "Error downloading video for item {id}: {message}", item.Id, ex.Message);
         item.Status = EQueueItemStatus.Paused;
         item.PersistedLog = string.Join(Environment.NewLine, item.OutputLog);
@@ -197,29 +211,105 @@ namespace SaveHere.Services
       }
       finally
       {
+        CleanupLogsForItem(item.Id);
         _downloadStateService.RemoveTokenSource(item.Id);
       }
     }
 
-    public async Task AppendLogAsync(int itemId, string logLine)
+    public Task AppendLogAsync(int itemId, string logLine)
     {
+      // Add log to pending queue (in-memory, no DB hit)
+      var queue = _pendingLogs.GetOrAdd(itemId, _ => new ConcurrentQueue<string>());
+      queue.Enqueue(logLine);
+
+      // Check if we should flush based on time interval
+      var now = DateTime.UtcNow;
+      var lastFlush = _lastFlushTime.GetOrAdd(itemId, DateTime.MinValue);
+
+      if (now - lastFlush >= _logFlushInterval)
+      {
+        // Fire and forget the flush - don't await to avoid blocking
+        _ = FlushLogsAsync(itemId);
+      }
+
+      return Task.CompletedTask;
+    }
+
+    public async Task FlushLogsAsync(int itemId)
+    {
+      var flushLock = _flushLocks.GetOrAdd(itemId, _ => new SemaphoreSlim(1, 1));
+
+      // If a flush is already in progress for this item, skip this call
+      if (!await flushLock.WaitAsync(0))
+      {
+        return;
+      }
+
       try
       {
+        if (!_pendingLogs.TryGetValue(itemId, out var queue) || queue.IsEmpty)
+        {
+          return;
+        }
+
+        // Drain all pending logs
+        var logsToFlush = new List<string>();
+        while (queue.TryDequeue(out var log))
+        {
+          logsToFlush.Add(log);
+        }
+
+        if (logsToFlush.Count == 0) return;
+
+        _lastFlushTime[itemId] = DateTime.UtcNow;
+
         await using var context = await _contextFactory.CreateDbContextAsync();
         var item = await context.YoutubeDownloadQueueItems.FindAsync(itemId);
         if (item != null)
         {
-          item.OutputLog = string.IsNullOrEmpty(item.PersistedLog)
-              ? new List<string> { logLine }
-              : item.PersistedLog.Split(Environment.NewLine).Concat(new[] { logLine }).ToList();
+          // Append all new logs at once
+          var existingLogs = string.IsNullOrEmpty(item.PersistedLog)
+              ? new List<string>()
+              : item.PersistedLog.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).ToList();
 
-          item.PersistedLog = string.Join(Environment.NewLine, item.OutputLog);
-          await context.SaveChangesAsync();
+          existingLogs.AddRange(logsToFlush);
+          item.PersistedLog = string.Join(Environment.NewLine, existingLogs);
+          item.OutputLog = existingLogs;
+
+          try
+          {
+            await context.SaveChangesAsync();
+          }
+          catch (DbUpdateConcurrencyException ex)
+          {
+            _logger.LogWarning(ex, "Concurrency conflict during log flush for item {itemId}. Re-queuing {LogCount} logs to prevent data loss.", itemId, logsToFlush.Count);
+            // Re-queue the logs that failed to persist
+            foreach (var log in logsToFlush)
+            {
+              queue.Enqueue(log);
+            }
+            // Detach the entity to resolve the conflict for this context instance
+            context.Entry(item).State = EntityState.Detached;
+          }
         }
       }
       catch (Exception ex)
       {
-        _logger.LogError(ex, "Error appending log to database for item {itemId}: {Message}", itemId, ex.Message);
+        _logger.LogError(ex, "Error flushing logs to database for item {itemId}: {Message}", itemId, ex.Message);
+      }
+      finally
+      {
+        flushLock.Release();
+      }
+    }
+
+    private void CleanupLogsForItem(int itemId)
+    {
+      _pendingLogs.TryRemove(itemId, out _);
+      _lastFlushTime.TryRemove(itemId, out _);
+      if (_flushLocks.TryRemove(itemId, out var semaphore))
+      {
+        semaphore.Dispose();
       }
     }
 
