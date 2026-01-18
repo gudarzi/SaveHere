@@ -365,32 +365,37 @@
   private async Task OnDownloadStateUpdateAsync(int itemId, string newStatus)
   {
     var item = _youtubeDownloadQueueItems.FirstOrDefault(x => x.Id == itemId);
-    if (item != null)
-    {
-      item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
-
-      // Trigger autostart when a download finishes, fails, or is cancelled
-      if (item.Status == EQueueItemStatus.Finished ||
-          item.Status == EQueueItemStatus.Paused ||
-          item.Status == EQueueItemStatus.Cancelled)
-      {
-        await StartPausedDownloads();
-      }
-
-      // Always update UI on state change, refresh file manager on completion/cancel
-      if (newStatus != EQueueItemStatus.Downloading.ToString())
-      {
-        await ThrottleUIUpdateAsync(true);
-      }
-      else
-      {
-        await InvokeAsync(StateHasChanged);
-      }
-    }
-    else
+    if (item == null)
     {
       await LoadDownloadItemsList();
       await ThrottleUIUpdateAsync(true);
+      return;
+    }
+
+    if (!Enum.TryParse<EQueueItemStatus>(newStatus, out var parsedStatus))
+    {
+      Console.WriteLine($"Warning: Received unknown download status '{newStatus}' for item {itemId}");
+      return;
+    }
+
+    item.Status = parsedStatus;
+
+    // Trigger autostart when a download finishes, fails, or is cancelled
+    if (item.Status == EQueueItemStatus.Finished ||
+        item.Status == EQueueItemStatus.Paused ||
+        item.Status == EQueueItemStatus.Cancelled)
+    {
+      await StartPausedDownloads();
+    }
+
+    // Always update UI on state change, refresh file manager on completion/cancel
+    if (item.Status != EQueueItemStatus.Downloading)
+    {
+      await ThrottleUIUpdateAsync(true);
+    }
+    else
+    {
+      await InvokeAsync(StateHasChanged);
     }
   }
 

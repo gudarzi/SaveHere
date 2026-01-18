@@ -1,4 +1,6 @@
 ﻿using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Text;
 
 namespace SaveHere.Services
@@ -6,11 +8,13 @@ namespace SaveHere.Services
   public class SpotifySearchService
   {
     private readonly HttpClient _http;
+    private readonly ILogger<SpotifySearchService> _logger;
 
-    // Inject HttpClient via DI.
-    public SpotifySearchService(HttpClient http)
+    // Inject HttpClient and ILogger via DI.
+    public SpotifySearchService(HttpClient http, ILogger<SpotifySearchService> logger)
     {
       _http = http;
+      _logger = logger;
     }
 
     public async Task<SpotifySearchResult> ConvertUrlAsync(string spotifyUrl)
@@ -38,7 +42,14 @@ namespace SaveHere.Services
 
         if (!response.IsSuccessStatusCode)
         {
-          result.Error = $"API returned status {(int)response.StatusCode}: {response.ReasonPhrase}";
+          _logger.LogWarning("Spotify API returned status {StatusCode} for URL: {Url}", (int)response.StatusCode, spotifyUrl);
+          result.Error = response.StatusCode switch
+          {
+            HttpStatusCode.NotFound => "The media link could not be found. Please verify the URL is correct.",
+            HttpStatusCode.TooManyRequests => "Too many requests. Please wait a moment and try again.",
+            HttpStatusCode.ServiceUnavailable => "The conversion service is temporarily unavailable. Please try again later.",
+            _ => $"Service error ({(int)response.StatusCode}): {response.ReasonPhrase}"
+          };
           return result;
         }
 
@@ -82,10 +93,22 @@ namespace SaveHere.Services
       }
       catch (HttpRequestException ex)
       {
+        _logger.LogError(ex, "Network error calling Spotify API for URL: {Url}", spotifyUrl);
         result.Error = $"Network error: {ex.Message}";
+      }
+      catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested)
+      {
+        _logger.LogWarning("Spotify search was cancelled for URL: {Url}", spotifyUrl);
+        result.Error = "The search was cancelled.";
+      }
+      catch (TaskCanceledException)
+      {
+        _logger.LogWarning("Spotify search timed out for URL: {Url}", spotifyUrl);
+        result.Error = "Request timed out. Please try again.";
       }
       catch (Exception ex)
       {
+        _logger.LogError(ex, "Unexpected error during Spotify search for URL: {Url}", spotifyUrl);
         result.Error = $"Unexpected error: {ex.Message}";
       }
 
