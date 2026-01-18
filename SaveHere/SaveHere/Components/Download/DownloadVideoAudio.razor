@@ -369,9 +369,10 @@
     {
       item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
 
-      // Trigger autostart when a download finishes or fails
-      if (newStatus == EQueueItemStatus.Finished.ToString() ||
-          newStatus == EQueueItemStatus.Paused.ToString())
+      // Trigger autostart when a download finishes, fails, or is cancelled
+      if (item.Status == EQueueItemStatus.Finished ||
+          item.Status == EQueueItemStatus.Paused ||
+          item.Status == EQueueItemStatus.Cancelled)
       {
         await StartPausedDownloads();
       }
