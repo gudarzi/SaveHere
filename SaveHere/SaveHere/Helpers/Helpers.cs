@@ -89,7 +89,7 @@ namespace SaveHere.Helpers
     { "application/java-archive", ".jar" },
     { "application/json", ".json" },
     { "application/msword", ".doc" },
-    { "application/octet-stream", ".exe" }, // can also be .bin (but .exe is more common)
+    { "application/octet-stream", ".bin" }, // generic binary data - .bin is safer than .exe
     { "application/ogg", ".ogx" },
     { "application/pdf", ".pdf" },
     { "application/rtf", ".rtf" },

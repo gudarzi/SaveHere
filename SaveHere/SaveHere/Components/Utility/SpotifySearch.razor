@@ -30,6 +30,10 @@
 
     @if (SearchResults != null)
     {
+      @if (!string.IsNullOrEmpty(SearchResults.Error))
+      {
+        <MudAlert Severity="Severity.Error" Class="my-3">@SearchResults.Error</MudAlert>
+      }
       <MudText Typo="Typo.h6">Results for: @SearchResults.OriginalUrl</MudText>
       <MudList T="object">
         @foreach (var kvp in SearchResults.Links)

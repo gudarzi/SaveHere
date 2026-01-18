@@ -243,7 +243,7 @@
   private string userId { get; set; } = "";
   private string userFolderPath { get; set; } = string.Empty;
   private string YoutubeUrl { get; set; } = "";
-  private string ProxyUrl { get; set; } = @"http://localhost:8086";
+  private string ProxyUrl { get; set; } = string.Empty;
   private string SelectedQuality { get; set; } = "Best";
   private string ErrorMessage { get; set; } = "";
 
@@ -278,10 +278,17 @@
     if (_persistentState.TryTakeFromJson<List<YoutubeDownloadQueueItem>>(nameof(_youtubeDownloadQueueItems), out var savedItems) && savedItems != null)
     {
       _youtubeDownloadQueueItems = savedItems;
+      await StartPausedDownloads();
     }
     else
     {
       await LoadDownloadItemsList();
+    }
+
+    // Restore proxy setting if saved
+    if (_persistentState.TryTakeFromJson<string>(nameof(ProxyUrl), out var savedProxy))
+    {
+      ProxyUrl = savedProxy ?? string.Empty;
     }
 
     await InitializeHubConnection();
@@ -311,6 +318,7 @@
   private Task PersistItems()
   {
     _persistentState.PersistAsJson(nameof(_youtubeDownloadQueueItems), _youtubeDownloadQueueItems);
+    _persistentState.PersistAsJson(nameof(ProxyUrl), ProxyUrl);
     return Task.CompletedTask;
   }
 
@@ -360,6 +368,13 @@
     if (item != null)
     {
       item.Status = Enum.Parse<EQueueItemStatus>(newStatus);
+
+      // Trigger autostart when a download finishes or fails
+      if (newStatus == EQueueItemStatus.Finished.ToString() ||
+          newStatus == EQueueItemStatus.Paused.ToString())
+      {
+        await StartPausedDownloads();
+      }
 
       // Always update UI on state change, refresh file manager on completion/cancel
       if (newStatus != EQueueItemStatus.Downloading.ToString())
