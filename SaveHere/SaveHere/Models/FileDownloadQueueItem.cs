@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SaveHere.Models
 {
@@ -30,5 +31,16 @@ namespace SaveHere.Models
     public bool UseHttp2 { get; set; } = true;
     public bool EnableCompression { get; set; } = true;
     public bool SupportsRangeRequests { get; set; } = false;
+
+    // Authentication settings
+    public AuthenticationType AuthType { get; set; } = AuthenticationType.None;
+    public string? AuthUsername { get; set; }
+    public string? AuthPassword { get; set; }
+    public string? AuthBearerToken { get; set; }
+    public string? AuthCookies { get; set; }
+    public string? AuthCustomHeaders { get; set; }
+
+    [NotMapped]
+    public bool HasAuthentication => AuthType != AuthenticationType.None;
   }
 }
