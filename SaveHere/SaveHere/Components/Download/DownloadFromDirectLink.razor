@@ -136,68 +136,6 @@
               <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
             </MudTooltip>
           </MudStack>
-
-          <MudDivider Class="my-3" />
-
-          <MudText Typo="Typo.subtitle2" Color="Color.Primary">Authentication Settings</MudText>
-          
-          <MudStack Row>
-            <MudSelect T="AuthenticationType" @bind-Value="_authType" Label="Authentication Type" Variant="Variant.Outlined" Margin="Margin.Dense">
-              <MudSelectItem Value="@AuthenticationType.None">None</MudSelectItem>
-              <MudSelectItem Value="@AuthenticationType.BasicAuth">Basic Auth</MudSelectItem>
-              <MudSelectItem Value="@AuthenticationType.BearerToken">Bearer Token</MudSelectItem>
-              <MudSelectItem Value="@AuthenticationType.Cookie">Cookies</MudSelectItem>
-              <MudSelectItem Value="@AuthenticationType.CustomHeaders">Custom Headers</MudSelectItem>
-            </MudSelect>
-            <MudTooltip Text="Select authentication method if the download requires login.">
-              <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
-            </MudTooltip>
-          </MudStack>
-
-          @if (_authType == AuthenticationType.BasicAuth)
-          {
-            <MudGrid>
-              <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_authUsername" 
-                              Label="Username" 
-                              Variant="Variant.Outlined" 
-                              Margin="Margin.Dense" />
-              </MudItem>
-              <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_authPassword" 
-                              Label="Password" 
-                              InputType="InputType.Password" 
-                              Variant="Variant.Outlined" 
-                              Margin="Margin.Dense" />
-              </MudItem>
-            </MudGrid>
-          }
-          else if (_authType == AuthenticationType.BearerToken)
-          {
-            <MudTextField @bind-Value="_authBearerToken" 
-                          Label="Bearer Token" 
-                          Variant="Variant.Outlined" 
-                          Margin="Margin.Dense"
-                          HelperText="Enter your OAuth/JWT token" />
-          }
-          else if (_authType == AuthenticationType.Cookie)
-          {
-            <MudTextField @bind-Value="_authCookies" 
-                          Label="Cookies" 
-                          Variant="Variant.Outlined" 
-                          Margin="Margin.Dense"
-                          Lines="2"
-                          HelperText="Format: name1=value1; name2=value2" />
-          }
-          else if (_authType == AuthenticationType.CustomHeaders)
-          {
-            <MudTextField @bind-Value="_authCustomHeaders" 
-                          Label="Custom Headers (JSON)" 
-                          Variant="Variant.Outlined" 
-                          Margin="Margin.Dense"
-                          Lines="3"
-                          HelperText="JSON format: {&quot;Header-Name&quot;: &quot;value&quot;, &quot;Another-Header&quot;: &quot;value2&quot;}" />
-          }
         </MudStack>
       </MudExpansionPanel>
     </MudExpansionPanels>
@@ -415,14 +353,6 @@
   private int _bufferSizeKB = 80;
   private bool _useHttp2 = true;
   private bool _enableCompression = true;
-
-  // Authentication settings
-  private AuthenticationType _authType = AuthenticationType.None;
-  private string? _authUsername;
-  private string? _authPassword;
-  private string? _authBearerToken;
-  private string? _authCookies;
-  private string? _authCustomHeaders;
 
   private readonly ChartOptions _chartOptions = new()
   {
@@ -682,13 +612,7 @@
           ParallelConnections = _parallelConnections,
           BufferSizeKB = _bufferSizeKB,
           UseHttp2 = _useHttp2,
-          EnableCompression = _enableCompression,
-          AuthType = _authType,
-          AuthUsername = _authUsername,
-          AuthPassword = _authPassword,
-          AuthBearerToken = _authBearerToken,
-          AuthCookies = _authCookies,
-          AuthCustomHeaders = _authCustomHeaders
+          EnableCompression = _enableCompression
         };
         _context.FileDownloadQueueItems.Add(newFileDownload);
         await _context.SaveChangesAsync();

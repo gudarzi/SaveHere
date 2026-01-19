@@ -15,7 +15,7 @@ namespace SaveHere.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.23");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.14");
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
@@ -218,50 +218,20 @@ namespace SaveHere.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("AuthBearerToken")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthCookies")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthCustomHeaders")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthPassword")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("AuthType")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("AuthUsername")
-                        .HasColumnType("TEXT");
-
                     b.Property<double>("AverageDownloadSpeed")
                         .HasColumnType("REAL");
-
-                    b.Property<int>("BufferSizeKB")
-                        .HasColumnType("INTEGER");
 
                     b.Property<double>("CurrentDownloadSpeed")
                         .HasColumnType("REAL");
 
-                    b.Property<string>("CustomFileName")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("DownloadFolder")
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("EnableCompression")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("InputUrl")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("MaxBytesPerSecond")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ParallelConnections")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ProgressPercentage")
@@ -272,12 +242,6 @@ namespace SaveHere.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("SupportsRangeRequests")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("UseHttp2")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("bShouldGetFilenameFromHttpHeaders")
@@ -318,9 +282,6 @@ namespace SaveHere.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("CustomFileName")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("DownloadFolder")
                         .HasColumnType("TEXT");
 
@@ -342,9 +303,6 @@ namespace SaveHere.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("SubtitleLanguage")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
                         .IsRequired()
