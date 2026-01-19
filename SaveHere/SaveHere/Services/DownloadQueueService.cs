@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Web;
 using System.Net.Http.Headers;
+using SaveHere.Helpers;
 using SaveHere.Services;
 
 namespace SaveHere.Services
@@ -185,7 +186,7 @@ namespace SaveHere.Services
       // Check if server supports range requests for parallel downloads
       if (queueItem.ParallelConnections > 1)
       {
-        queueItem.SupportsRangeRequests = await CheckRangeSupport(queueItem.InputUrl, cancellationToken);
+        queueItem.SupportsRangeRequests = await CheckRangeSupport(queueItem, cancellationToken);
         if (queueItem.SupportsRangeRequests)
         {
           await DownloadFileParallel(queueItem, cancellationToken);
@@ -224,7 +225,9 @@ namespace SaveHere.Services
         : queueItem.CustomFileName;
 
 
-       var response = await httpClient.GetAsync(queueItem.InputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+       var initialRequest = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+       HttpRequestAuthenticator.ApplyAuthentication(initialRequest, queueItem);
+       var response = await httpClient.SendAsync(initialRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
        response.EnsureSuccessStatusCode();
 
                 if (string.IsNullOrWhiteSpace(queueItem.CustomFileName) && queueItem.bShouldGetFilenameFromHttpHeaders)
@@ -286,6 +289,7 @@ namespace SaveHere.Services
         }
 
         var requestMessage = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+        HttpRequestAuthenticator.ApplyAuthentication(requestMessage, queueItem);
 
         if (totalBytesRead > 0)
         {
@@ -546,9 +550,32 @@ namespace SaveHere.Services
       }
     }
 
+    /// <summary>
+    /// Checks if the server supports range requests, with authentication support.
+    /// </summary>
+    public async Task<bool> CheckRangeSupport(FileDownloadQueueItem queueItem, CancellationToken cancellationToken)
+    {
+      try
+      {
+        var request = new HttpRequestMessage(HttpMethod.Head, queueItem.InputUrl);
+        HttpRequestAuthenticator.ApplyAuthentication(request, queueItem);
+        request.Headers.Range = new RangeHeaderValue(0, 0);
+        
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        return response.StatusCode == HttpStatusCode.PartialContent || 
+               response.Headers.AcceptRanges?.Contains("bytes") == true;
+      }
+      catch
+      {
+        return false;
+      }
+    }
+
     public async Task DownloadFileParallel(FileDownloadQueueItem queueItem, CancellationToken cancellationToken)
     {
-      var response = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, queueItem.InputUrl), cancellationToken);
+      var headRequest = new HttpRequestMessage(HttpMethod.Head, queueItem.InputUrl);
+      HttpRequestAuthenticator.ApplyAuthentication(headRequest, queueItem);
+      var response = await _httpClient.SendAsync(headRequest, cancellationToken);
       var contentLength = response.Content.Headers.ContentLength;
       
       if (!contentLength.HasValue)
@@ -631,6 +658,7 @@ namespace SaveHere.Services
     private async Task DownloadChunk(FileDownloadQueueItem queueItem, long start, long end, string chunkFile, int chunkIndex, CancellationToken cancellationToken, ParallelDownloadProgress progressTracker)
     {
       var request = new HttpRequestMessage(HttpMethod.Get, queueItem.InputUrl);
+      HttpRequestAuthenticator.ApplyAuthentication(request, queueItem);
       request.Headers.Range = new RangeHeaderValue(start, end);
 
       using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
