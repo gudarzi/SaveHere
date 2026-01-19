@@ -261,38 +261,13 @@ namespace SaveHere.Tests.Services
             Assert.Null(exception);
         }
 
-        [Fact]
-        public void HasAuthentication_ReturnsTrue_WhenAuthTypeIsNotNone()
-        {
-            // Arrange
-            var queueItem = new FileDownloadQueueItem
-            {
-                AuthType = AuthenticationType.BasicAuth
-            };
-
-            // Assert
-            Assert.True(queueItem.HasAuthentication);
-        }
-
-        [Fact]
-        public void HasAuthentication_ReturnsFalse_WhenAuthTypeIsNone()
-        {
-            // Arrange
-            var queueItem = new FileDownloadQueueItem
-            {
-                AuthType = AuthenticationType.None
-            };
-
-            // Assert
-            Assert.False(queueItem.HasAuthentication);
-        }
-
         [Theory]
-        [InlineData(AuthenticationType.BasicAuth)]
-        [InlineData(AuthenticationType.BearerToken)]
-        [InlineData(AuthenticationType.Cookie)]
-        [InlineData(AuthenticationType.CustomHeaders)]
-        public void HasAuthentication_ReturnsTrue_ForAllAuthTypes(AuthenticationType authType)
+        [InlineData(AuthenticationType.BasicAuth, true)]
+        [InlineData(AuthenticationType.BearerToken, true)]
+        [InlineData(AuthenticationType.Cookie, true)]
+        [InlineData(AuthenticationType.CustomHeaders, true)]
+        [InlineData(AuthenticationType.None, false)]
+        public void HasAuthentication_ReturnsCorrectValue_ForAuthType(AuthenticationType authType, bool expected)
         {
             // Arrange
             var queueItem = new FileDownloadQueueItem
@@ -301,7 +276,7 @@ namespace SaveHere.Tests.Services
             };
 
             // Assert
-            Assert.True(queueItem.HasAuthentication);
+            Assert.Equal(expected, queueItem.HasAuthentication);
         }
     }
 }
